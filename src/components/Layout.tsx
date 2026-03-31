@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Menu, X, LogOut, Settings } from 'lucide-react'
+import { Menu, X, LogOut, LogIn } from 'lucide-react'
 
 interface LayoutProps {
   user: any
@@ -65,19 +65,29 @@ export default function Layout({ user, isAdmin }: LayoutProps) {
 
         {/* User Section */}
         <div className="border-t border-slate-800 p-4 space-y-3">
-          <div className="px-4 py-2 bg-slate-900 rounded-lg">
-            <p className="text-xs text-slate-400">Logged in as</p>
-            <p className="text-sm font-medium text-white truncate">
-              {user?.email}
-            </p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center justify-center transition-colors"
-          >
-            <LogOut size={16} className="mr-2" />
-            Logout
-          </button>
+          {user ? (
+            <>
+              <div className="px-4 py-2 bg-slate-900 rounded-lg">
+                <p className="text-xs text-slate-400">Logged in as</p>
+                <p className="text-sm font-medium text-white truncate">{user.email}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="w-full px-4 py-2 bg-slate-800 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center justify-center transition-colors"
+              >
+                <LogOut size={16} className="mr-2" />
+                Logout
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => navigate('/auth')}
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center justify-center transition-colors"
+            >
+              <LogIn size={16} className="mr-2" />
+              Sign in
+            </button>
+          )}
         </div>
       </div>
 
@@ -91,8 +101,13 @@ export default function Layout({ user, isAdmin }: LayoutProps) {
           >
             {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
-          <div className="flex items-center space-x-4">
-            <Settings size={20} className="text-slate-600 cursor-pointer hover:text-slate-900" />
+          <div className="flex items-center space-x-3">
+            {!user && (
+              <button onClick={() => navigate('/auth')}
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                Sign in
+              </button>
+            )}
           </div>
         </div>
 
