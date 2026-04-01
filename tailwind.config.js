@@ -6,13 +6,21 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Playfair Display', 'serif'],
+      },
       colors: {
+        sidebar: {
+          DEFAULT: '#0f1d14',
+          active: '#1e3527',
+        },
         esg: {
-          climate: '#3B82F6',
-          circularity: '#22C55E',
-          nature: '#14B8A6',
-          social: '#F97316',
-          governance: '#8B5CF6',
+          climate: '#16a34a',
+          circularity: '#2563eb',
+          nature: '#0d9488',
+          social: '#ea580c',
+          governance: '#7c3aed',
         },
       },
     },

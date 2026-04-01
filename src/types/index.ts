@@ -1,6 +1,5 @@
 export type ESGCategory = 'Climate' | 'Circularity' | 'Nature' | 'Social' | 'Governance'
 export type RegulationStatus = 'in_force' | 'draft' | 'adopted' | 'amended' | 'repealed'
-export type ImpactLevel = 'high' | 'medium' | 'low'
 export type ComplianceStatus = 'not_started' | 'in_progress' | 'compliant' | 'exempt' | 'monitoring'
 
 export interface Regulation {
@@ -12,7 +11,6 @@ export interface Regulation {
   region: string
   status: RegulationStatus
   effective_date: string
-  impact_level: ImpactLevel
   source_name: string
   source_url: string
   tags: string[]

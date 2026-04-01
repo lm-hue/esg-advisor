@@ -1,55 +1,35 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { withAuthModal } from '../lib/authModal'
+import BookmarkHint from '../components/BookmarkHint'
+import { fetchRegulationById } from '../lib/regulations'
+import { getUserWatchlist, saveUserWatchlist } from '../lib/userSettings'
 import { Regulation } from '../types'
-import { ArrowLeft, ExternalLink } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Star, Globe } from 'lucide-react'
+import { CATEGORY_BADGES, CATEGORY_DOTS, STATUS_BADGES, formatStatusLabel } from '../lib/appTheme'
 
 interface RegulationDetailPageProps {
   user: any
 }
 
-const statusColors: Record<string, string> = {
-  in_force: 'bg-green-100 text-green-800',
-  draft: 'bg-slate-100 text-slate-800',
-  adopted: 'bg-yellow-100 text-yellow-800',
-  amended: 'bg-blue-100 text-blue-800',
-  repealed: 'bg-red-100 text-red-800',
-}
-
-const categoryColors: Record<string, string> = {
-  Climate: 'bg-blue-100 text-blue-800 border-blue-300',
-  Circularity: 'bg-green-100 text-green-800 border-green-300',
-  Nature: 'bg-teal-100 text-teal-800 border-teal-300',
-  Social: 'bg-orange-100 text-orange-800 border-orange-300',
-  Governance: 'bg-purple-100 text-purple-800 border-purple-300',
-}
-
-const impactDots: Record<string, string> = {
-  high: 'bg-red-500',
-  medium: 'bg-yellow-500',
-  low: 'bg-green-500',
-}
-
 export default function RegulationDetailPage({ user }: RegulationDetailPageProps) {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const [regulation, setRegulation] = useState<Regulation | null>(null)
   const [loading, setLoading] = useState(true)
   const [isWatched, setIsWatched] = useState(false)
 
   useEffect(() => {
     fetchRegulation()
-    checkWatchlist()
+    if (user) checkWatchlist()
   }, [id, user])
 
   const fetchRegulation = async () => {
     if (!id) return
+
     try {
-      const { data } = await supabase
-        .from('regulations')
-        .select('*')
-        .eq('id', id)
-        .single()
+      const data = await fetchRegulationById(id)
       setRegulation(data)
     } catch (error) {
       console.error('Error fetching regulation:', error)
@@ -59,37 +39,27 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
   }
 
   const checkWatchlist = async () => {
-    if (!id) return
+    if (!id || !user) return
+
     try {
-      const { data } = await supabase
-        .from('user_settings')
-        .select('watched_regulation_ids')
-        .eq('user_id', user.id)
-        .single()
-      setIsWatched(data?.watched_regulation_ids?.includes(id) || false)
+      const watchlist = await getUserWatchlist(user.id)
+      setIsWatched(watchlist.includes(id))
     } catch (error) {
       console.error('Error checking watchlist:', error)
     }
   }
 
   const toggleWatch = async () => {
+    if (!user) return navigate(withAuthModal(location.pathname, location.search))
     if (!id) return
-    try {
-      const { data: current } = await supabase
-        .from('user_settings')
-        .select('watched_regulation_ids')
-        .eq('user_id', user.id)
-        .single()
 
-      const currentWatchlist = current?.watched_regulation_ids || []
-      const newWatchlist = isWatched
-        ? currentWatchlist.filter((rid: string) => rid !== id)
+    try {
+      const currentWatchlist = await getUserWatchlist(user.id)
+      const nextWatchlist = isWatched
+        ? currentWatchlist.filter((regulationId: string) => regulationId !== id)
         : [...currentWatchlist, id]
 
-      await supabase
-        .from('user_settings')
-        .update({ watched_regulation_ids: newWatchlist })
-        .eq('user_id', user.id)
+      await saveUserWatchlist(user.id, nextWatchlist)
 
       setIsWatched(!isWatched)
     } catch (error) {
@@ -97,31 +67,14 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
     }
   }
 
-  const addToCompliance = async () => {
-    if (!id) return
-    try {
-      await supabase
-        .from('compliance_records')
-        .insert({
-          user_id: user.id,
-          regulation_id: id,
-          status: 'not_started',
-          target_date: new Date().toISOString().split('T')[0],
-          notes: '',
-        })
-
-      navigate('/tracker')
-    } catch (error) {
-      console.error('Error adding to compliance:', error)
-    }
-  }
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading...</p>
+      <div className="page-shell-narrow">
+        <div className="surface-card flex h-64 items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[hsl(var(--primary)/0.2)] border-t-[hsl(var(--primary))]" />
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">Loading regulation...</p>
+          </div>
         </div>
       </div>
     )
@@ -129,96 +82,101 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
 
   if (!regulation) {
     return (
-      <div className="p-6">
-        <button
-          onClick={() => navigate('/regulations')}
-          className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
-        >
-          <ArrowLeft size={20} className="mr-2" />
+      <div className="page-shell-narrow">
+        <button onClick={() => navigate('/regulations')} className="ui-button-ghost mb-4 !px-0">
+          <ArrowLeft size={16} />
           Back to Regulations
         </button>
-        <div className="text-center py-12">
-          <p className="text-slate-600">Regulation not found</p>
+        <div className="surface-card px-6 py-16 text-center">
+          <p className="text-sm font-medium text-[hsl(var(--foreground))]">Regulation not found</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <button
-        onClick={() => navigate('/regulations')}
-        className="flex items-center text-blue-600 hover:text-blue-700 mb-6"
-      >
-        <ArrowLeft size={20} className="mr-2" />
+    <div className="page-shell-narrow">
+      <button onClick={() => navigate('/regulations')} className="ui-button-ghost mb-4 !px-0">
+        <ArrowLeft size={16} />
         Back to Regulations
       </button>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        <div className="flex items-start justify-between mb-6">
-          <h1 className="text-4xl font-bold text-slate-900 flex-1">{regulation.title}</h1>
-          <button
-            onClick={toggleWatch}
-            className="text-3xl ml-4 transition-all hover:scale-110"
-          >
-            {isWatched ? '⭐' : '☆'}
-          </button>
+      <div className="surface-card p-6 md:p-8">
+        <div className="mb-6 flex items-start gap-4">
+          <div className="flex-1">
+            <div className="mb-3 flex flex-wrap gap-2">
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${CATEGORY_BADGES[regulation.category] || 'bg-slate-100 text-slate-600'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${CATEGORY_DOTS[regulation.category] || 'bg-slate-400'}`} />
+                {regulation.category}
+              </span>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${STATUS_BADGES[regulation.status] || 'bg-slate-100 text-slate-600'}`}>
+                {formatStatusLabel(regulation.status)}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[hsl(var(--muted))] px-3 py-1 text-xs font-semibold text-[hsl(var(--muted-foreground))]">
+                <Globe size={12} />
+                {regulation.region}
+              </span>
+            </div>
+
+            <h2 className="font-display text-3xl font-semibold leading-tight text-[hsl(var(--foreground))]">
+              {regulation.title}
+            </h2>
+          </div>
+
+          <BookmarkHint showHint={!user}>
+            <button
+              onClick={toggleWatch}
+              className={`rounded-full p-3 transition-colors ${
+                isWatched ? 'bg-amber-100 text-amber-600' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:text-amber-600'
+              }`}
+              aria-label={isWatched ? 'Remove from watchlist' : 'Add to watchlist'}
+            >
+              <Star size={18} className={isWatched ? 'fill-current' : ''} />
+            </button>
+          </BookmarkHint>
         </div>
 
-        {/* Badges */}
-        <div className="flex flex-wrap gap-3 mb-8">
-          <span className={`px-4 py-2 rounded-full text-sm font-semibold border ${categoryColors[regulation.category] || 'bg-gray-100'}`}>
-            {regulation.category}
-          </span>
-          <span className={`px-4 py-2 rounded-full text-sm font-semibold ${statusColors[regulation.status] || 'bg-gray-100'}`}>
-            {regulation.status.replace('_', ' ')}
-          </span>
-          <span className="px-4 py-2 rounded-full text-sm font-semibold bg-slate-100">
-            {regulation.region}
-          </span>
-          <span className="px-4 py-2 rounded-full text-sm font-semibold bg-slate-100 flex items-center gap-2">
-            <span className={`w-3 h-3 rounded-full ${impactDots[regulation.impact_level]}`}></span>
-            {regulation.impact_level.charAt(0).toUpperCase() + regulation.impact_level.slice(1)} Impact
-          </span>
-        </div>
-
-        {/* Key Info */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 pb-8 border-b border-slate-200">
-          <div>
-            <p className="text-sm text-slate-600 mb-2">Effective Date</p>
-            <p className="text-lg font-semibold text-slate-900">
+        <div className="mb-8 grid gap-4 md:grid-cols-3">
+          <div className="surface-card-muted p-4">
+            <p className="ui-caption mb-1">Effective Date</p>
+            <p className="text-base font-semibold text-[hsl(var(--foreground))]">
               {new Date(regulation.effective_date).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
-                day: 'numeric'
+                day: 'numeric',
               })}
             </p>
           </div>
-          <div>
-            <p className="text-sm text-slate-600 mb-2">Source</p>
-            <p className="text-lg font-semibold text-slate-900">{regulation.source_name}</p>
+
+          <div className="surface-card-muted p-4">
+            <p className="ui-caption mb-1">Source</p>
+            <p className="text-base font-semibold text-[hsl(var(--foreground))]">{regulation.source_name}</p>
           </div>
-          <div>
-            <p className="text-sm text-slate-600 mb-2">Category</p>
-            <p className="text-lg font-semibold text-slate-900">{regulation.category}</p>
+
+          <div className="surface-card-muted p-4">
+            <p className="ui-caption mb-1">Current Status</p>
+            <p className="text-base font-semibold capitalize text-[hsl(var(--foreground))]">
+              {formatStatusLabel(regulation.status)}
+            </p>
           </div>
         </div>
 
-        {/* Description */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-slate-900 mb-4">Overview</h2>
-          <p className="text-slate-700 leading-relaxed mb-6">
-            {regulation.full_description}
+          <h3 className="mb-3 text-base font-semibold text-[hsl(var(--foreground))]">Overview</h3>
+          <p className="text-sm leading-7 text-[hsl(var(--muted-foreground))]">
+            {regulation.full_description || regulation.description}
           </p>
         </div>
 
-        {/* Tags */}
         {regulation.tags && regulation.tags.length > 0 && (
           <div className="mb-8">
-            <h3 className="text-lg font-bold text-slate-900 mb-3">Tags</h3>
+            <h3 className="mb-3 text-base font-semibold text-[hsl(var(--foreground))]">Tags</h3>
             <div className="flex flex-wrap gap-2">
               {regulation.tags.map((tag) => (
-                <span key={tag} className="px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-sm">
+                <span
+                  key={tag}
+                  className="rounded-full bg-[hsl(var(--muted))] px-3 py-1 text-xs font-medium text-[hsl(var(--muted-foreground))]"
+                >
                   {tag}
                 </span>
               ))}
@@ -226,35 +184,28 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
           </div>
         )}
 
-        {/* Source Link */}
-        {regulation.source_url && (
-          <div className="mb-8">
+        <div className="flex flex-wrap gap-3">
+          {regulation.source_url && (
             <a
               href={regulation.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center px-6 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium"
+              className="ui-button-secondary"
             >
-              <ExternalLink size={18} className="mr-2" />
+              <ExternalLink size={16} />
               View Official Source
             </a>
-          </div>
-        )}
+          )}
 
-        {/* Action Buttons */}
-        <div className="flex gap-4">
-          <button
-            onClick={addToCompliance}
-            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-          >
-            Add to Compliance Tracker
-          </button>
-          <button
-            onClick={toggleWatch}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            {isWatched ? 'Remove from Watchlist' : 'Add to Watchlist'}
-          </button>
+          <BookmarkHint showHint={!user}>
+            <button
+              onClick={toggleWatch}
+              className="ui-button-primary"
+            >
+              <Star size={16} className={isWatched ? 'fill-current' : ''} />
+              {isWatched ? 'Remove from Watchlist' : 'Add to Watchlist'}
+            </button>
+          </BookmarkHint>
         </div>
       </div>
     </div>

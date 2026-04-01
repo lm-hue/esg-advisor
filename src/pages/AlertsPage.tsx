@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Bell, Save } from 'lucide-react'
+import { Save } from 'lucide-react'
 import { ESG_CATEGORIES, REGIONS } from '../types/index'
+import { CATEGORY_DOTS } from '../lib/appTheme'
 
-interface AlertsPageProps { user: any }
+interface AlertsPageProps {
+  user: any
+}
 
 export default function AlertsPage({ user }: AlertsPageProps) {
   const [saving, setSaving] = useState(false)
@@ -19,6 +22,7 @@ export default function AlertsPage({ user }: AlertsPageProps) {
 
   useEffect(() => {
     if (!user) return
+
     supabase
       .from('user_settings')
       .select('*')
@@ -41,27 +45,29 @@ export default function AlertsPage({ user }: AlertsPageProps) {
     setSettings((prev) => ({
       ...prev,
       [key]: prev[key].includes(value)
-        ? prev[key].filter((v) => v !== value)
+        ? prev[key].filter((item) => item !== value)
         : [...prev[key], value],
     }))
   }
 
   const addKeyword = () => {
-    const kw = keywordInput.trim()
-    if (kw && !settings.alert_keywords.includes(kw)) {
-      setSettings((prev) => ({ ...prev, alert_keywords: [...prev.alert_keywords, kw] }))
+    const nextKeyword = keywordInput.trim()
+    if (nextKeyword && !settings.alert_keywords.includes(nextKeyword)) {
+      setSettings((prev) => ({ ...prev, alert_keywords: [...prev.alert_keywords, nextKeyword] }))
     }
     setKeywordInput('')
   }
 
-  const removeKeyword = (kw: string) => {
+  const removeKeyword = (keyword: string) => {
     setSettings((prev) => ({
       ...prev,
-      alert_keywords: prev.alert_keywords.filter((k) => k !== kw),
+      alert_keywords: prev.alert_keywords.filter((item) => item !== keyword),
     }))
   }
 
   const handleSave = async () => {
+    if (!user) return
+
     setSaving(true)
     const { data: existing } = await supabase
       .from('user_settings')
@@ -74,154 +80,137 @@ export default function AlertsPage({ user }: AlertsPageProps) {
     } else {
       await supabase.from('user_settings').insert({ ...settings, user_id: user.id })
     }
+
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
-      <div className="flex items-center space-x-3 mb-8">
-        <Bell size={28} className="text-blue-600" />
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Notification Alerts</h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            Get notified when regulations in your focus areas change.
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        {/* Master toggle */}
-        <div className="bg-white rounded-xl border border-slate-100 p-5 flex items-center justify-between">
+    <div className="page-shell-narrow">
+      <div className="surface-card mb-6 p-6">
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="font-medium text-slate-800">Enable alerts</p>
-            <p className="text-sm text-slate-500">Receive notifications for regulation changes</p>
+            <p className="ui-section-title">Enable alerts</p>
+            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
+              Receive notifications when regulations in your focus areas change.
+            </p>
           </div>
+
           <button
-            onClick={() => setSettings((p) => ({ ...p, alerts_enabled: !p.alerts_enabled }))}
-            className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${
-              settings.alerts_enabled ? 'bg-blue-600' : 'bg-slate-300'
+            onClick={() => setSettings((prev) => ({ ...prev, alerts_enabled: !prev.alerts_enabled }))}
+            className={`relative inline-flex h-7 w-12 rounded-full transition-colors ${
+              settings.alerts_enabled ? 'bg-[hsl(var(--primary))]' : 'bg-slate-300'
             }`}
+            aria-label="Toggle alerts"
           >
             <span
-              className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform mt-1 ${
+              className={`mt-1 inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
                 settings.alerts_enabled ? 'translate-x-6' : 'translate-x-1'
               }`}
             />
           </button>
         </div>
+      </div>
 
-        {settings.alerts_enabled && (
-          <>
-            {/* Frequency */}
-            <div className="bg-white rounded-xl border border-slate-100 p-5">
-              <p className="font-medium text-slate-800 mb-3">Alert frequency</p>
-              <div className="flex gap-3">
-                {(['immediate', 'daily', 'weekly'] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setSettings((p) => ({ ...p, alert_frequency: f }))}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
-                      settings.alert_frequency === f
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Categories */}
-            <div className="bg-white rounded-xl border border-slate-100 p-5">
-              <p className="font-medium text-slate-800 mb-3">ESG categories to monitor</p>
-              <div className="flex flex-wrap gap-2">
-                {ESG_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => toggleItem('alert_categories', cat)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${
-                      settings.alert_categories.includes(cat)
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Regions */}
-            <div className="bg-white rounded-xl border border-slate-100 p-5">
-              <p className="font-medium text-slate-800 mb-3">Regions to monitor</p>
-              <div className="flex flex-wrap gap-2">
-                {REGIONS.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => toggleItem('alert_regions', r)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      settings.alert_regions.includes(r)
-                        ? 'bg-green-600 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Keywords */}
-            <div className="bg-white rounded-xl border border-slate-100 p-5">
-              <p className="font-medium text-slate-800 mb-3">Keywords to watch</p>
-              <div className="flex gap-2 mb-3">
-                <input
-                  value={keywordInput}
-                  onChange={(e) => setKeywordInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addKeyword()}
-                  placeholder="e.g. CSRD, scope 3…"
-                  className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+      {settings.alerts_enabled && (
+        <>
+          <div className="surface-card mb-6 p-6">
+            <p className="ui-section-title mb-4">Alert frequency</p>
+            <div className="flex flex-wrap gap-2">
+              {(['immediate', 'daily', 'weekly'] as const).map((frequency) => (
                 <button
-                  onClick={addKeyword}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                  key={frequency}
+                  onClick={() => setSettings((prev) => ({ ...prev, alert_frequency: frequency }))}
+                  className={`rounded-xl border px-4 py-2.5 text-left text-sm font-medium transition-all ${
+                    settings.alert_frequency === frequency
+                      ? 'border-[hsl(var(--primary)/0.3)] bg-[hsl(var(--primary))] text-white shadow-sm'
+                      : 'border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary)/0.25)] hover:text-[hsl(var(--foreground))]'
+                  }`}
                 >
-                  Add
+                  <div className="capitalize">{frequency}</div>
+                  <div className={`mt-0.5 text-[11px] ${settings.alert_frequency === frequency ? 'text-white/75' : 'text-[hsl(var(--muted-foreground))]'}`}>
+                    {frequency === 'immediate' ? 'As it happens' : frequency === 'daily' ? 'Once per day' : 'Once per week'}
+                  </div>
                 </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {settings.alert_keywords.map((kw) => (
+              ))}
+            </div>
+          </div>
+
+          <div className="surface-card mb-6 p-6">
+            <p className="ui-section-title mb-4">ESG categories to monitor</p>
+            <div className="flex flex-wrap gap-2">
+              {ESG_CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => toggleItem('alert_categories', category)}
+                  className={`ui-filter-pill ${settings.alert_categories.includes(category) ? 'ui-filter-pill-active' : ''}`}
+                >
+                  <span className={`h-2 w-2 rounded-full ${CATEGORY_DOTS[category]}`} />
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="surface-card mb-6 p-6">
+            <p className="ui-section-title mb-4">Regions to monitor</p>
+            <div className="flex flex-wrap gap-2">
+              {REGIONS.map((region) => (
+                <button
+                  key={region}
+                  onClick={() => toggleItem('alert_regions', region)}
+                  className={`ui-filter-pill ${settings.alert_regions.includes(region) ? 'ui-filter-pill-active' : ''}`}
+                >
+                  {region}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="surface-card mb-6 p-6">
+            <p className="ui-section-title mb-4">Keywords to watch</p>
+            <div className="mb-3 flex gap-2">
+              <input
+                value={keywordInput}
+                onChange={(event) => setKeywordInput(event.target.value)}
+                onKeyDown={(event) => event.key === 'Enter' && addKeyword()}
+                placeholder="e.g. CSRD, scope 3, taxonomy"
+                className="ui-input"
+              />
+              <button onClick={addKeyword} className="ui-button-secondary">
+                Add
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {settings.alert_keywords.length === 0 ? (
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">No keywords added yet.</p>
+              ) : (
+                settings.alert_keywords.map((keyword) => (
                   <span
-                    key={kw}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-lg text-sm"
+                    key={keyword}
+                    className="inline-flex items-center gap-2 rounded-full bg-[hsl(var(--muted))] px-3 py-1.5 text-sm text-[hsl(var(--foreground))]"
                   >
-                    {kw}
+                    {keyword}
                     <button
-                      onClick={() => removeKeyword(kw)}
-                      className="text-slate-400 hover:text-red-500 ml-1"
+                      onClick={() => removeKeyword(keyword)}
+                      className="text-[hsl(var(--muted-foreground))] transition-colors hover:text-red-500"
                     >
                       ×
                     </button>
                   </span>
-                ))}
-              </div>
+                ))
+              )}
             </div>
-          </>
-        )}
+          </div>
+        </>
+      )}
 
-        {/* Save */}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
-        >
-          <Save size={16} />
-          {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save preferences'}
-        </button>
-      </div>
+      <button onClick={handleSave} disabled={saving || !user} className="ui-button-primary w-full">
+        <Save size={16} />
+        {saving ? 'Saving...' : saved ? 'Saved' : 'Save Preferences'}
+      </button>
     </div>
   )
 }
