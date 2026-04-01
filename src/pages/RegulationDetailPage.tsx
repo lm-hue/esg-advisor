@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { withAuthModal } from '../lib/authModal'
+import BookmarkHint from '../components/BookmarkHint'
+import { fetchRegulationById } from '../lib/regulations'
+import { getUserWatchlist, saveUserWatchlist } from '../lib/userSettings'
 import { Regulation } from '../types'
 import { ArrowLeft, ExternalLink, Star, Globe } from 'lucide-react'
 import { CATEGORY_BADGES, CATEGORY_DOTS, STATUS_BADGES, formatStatusLabel } from '../lib/appTheme'
@@ -12,6 +15,7 @@ interface RegulationDetailPageProps {
 export default function RegulationDetailPage({ user }: RegulationDetailPageProps) {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const [regulation, setRegulation] = useState<Regulation | null>(null)
   const [loading, setLoading] = useState(true)
   const [isWatched, setIsWatched] = useState(false)
@@ -25,7 +29,7 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
     if (!id) return
 
     try {
-      const { data } = await supabase.from('regulations').select('*').eq('id', id).single()
+      const data = await fetchRegulationById(id)
       setRegulation(data)
     } catch (error) {
       console.error('Error fetching regulation:', error)
@@ -38,37 +42,24 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
     if (!id || !user) return
 
     try {
-      const { data } = await supabase
-        .from('user_settings')
-        .select('watched_regulation_ids')
-        .eq('user_id', user.id)
-        .single()
-      setIsWatched(data?.watched_regulation_ids?.includes(id) || false)
+      const watchlist = await getUserWatchlist(user.id)
+      setIsWatched(watchlist.includes(id))
     } catch (error) {
       console.error('Error checking watchlist:', error)
     }
   }
 
   const toggleWatch = async () => {
-    if (!user) return navigate('/auth')
+    if (!user) return navigate(withAuthModal(location.pathname, location.search))
     if (!id) return
 
     try {
-      const { data: current } = await supabase
-        .from('user_settings')
-        .select('watched_regulation_ids')
-        .eq('user_id', user.id)
-        .single()
-
-      const currentWatchlist = current?.watched_regulation_ids || []
+      const currentWatchlist = await getUserWatchlist(user.id)
       const nextWatchlist = isWatched
         ? currentWatchlist.filter((regulationId: string) => regulationId !== id)
         : [...currentWatchlist, id]
 
-      await supabase
-        .from('user_settings')
-        .update({ watched_regulation_ids: nextWatchlist })
-        .eq('user_id', user.id)
+      await saveUserWatchlist(user.id, nextWatchlist)
 
       setIsWatched(!isWatched)
     } catch (error) {
@@ -132,15 +123,17 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
             </h2>
           </div>
 
-          <button
-            onClick={toggleWatch}
-            className={`rounded-full p-3 transition-colors ${
-              isWatched ? 'bg-amber-100 text-amber-600' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:text-amber-600'
-            }`}
-            aria-label={isWatched ? 'Remove from watchlist' : 'Add to watchlist'}
-          >
-            <Star size={18} className={isWatched ? 'fill-current' : ''} />
-          </button>
+          <BookmarkHint showHint={!user}>
+            <button
+              onClick={toggleWatch}
+              className={`rounded-full p-3 transition-colors ${
+                isWatched ? 'bg-amber-100 text-amber-600' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:text-amber-600'
+              }`}
+              aria-label={isWatched ? 'Remove from watchlist' : 'Add to watchlist'}
+            >
+              <Star size={18} className={isWatched ? 'fill-current' : ''} />
+            </button>
+          </BookmarkHint>
         </div>
 
         <div className="mb-8 grid gap-4 md:grid-cols-3">
@@ -204,10 +197,15 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
             </a>
           )}
 
-          <button onClick={toggleWatch} className="ui-button-primary">
-            <Star size={16} className={isWatched ? 'fill-current' : ''} />
-            {isWatched ? 'Remove from Watchlist' : 'Add to Watchlist'}
-          </button>
+          <BookmarkHint showHint={!user}>
+            <button
+              onClick={toggleWatch}
+              className="ui-button-primary"
+            >
+              <Star size={16} className={isWatched ? 'fill-current' : ''} />
+              {isWatched ? 'Remove from Watchlist' : 'Add to Watchlist'}
+            </button>
+          </BookmarkHint>
         </div>
       </div>
     </div>

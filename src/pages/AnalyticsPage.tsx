@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { fetchAllRegulations } from '../lib/regulations'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 const CATEGORY_COLORS = ['#0f766e', '#0f7b5c', '#d97706', '#2563eb', '#7c3aed']
@@ -26,13 +27,12 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     const load = async () => {
-      const [regs, compliance, posts] = await Promise.all([
-        supabase.from('regulations').select('category, status, full_description'),
+      const [regulations, compliance, posts] = await Promise.all([
+        fetchAllRegulations(),
         supabase.from('compliance_records').select('compliance_status'),
         supabase.from('community_posts').select('category_tag'),
       ])
 
-      const regulations = regs.data || []
       const compRecords = compliance.data || []
       const communityPosts = posts.data || []
 

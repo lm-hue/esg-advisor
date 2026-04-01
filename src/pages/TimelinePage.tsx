@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import {
   Search,
@@ -13,9 +13,22 @@ import {
   SlidersHorizontal,
   ChevronDown,
 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
-import { ESG_CATEGORIES, Regulation } from '../types'
-import { CATEGORY_BADGES, STATUS_BADGES, formatStatusLabel } from '../lib/appTheme'
+import { withAuthModal } from '../lib/authModal'
+import BookmarkHint from '../components/BookmarkHint'
+import { fetchAllRegulations } from '../lib/regulations'
+import { getUserWatchlist, saveUserWatchlist } from '../lib/userSettings'
+import { Regulation } from '../types'
+import {
+  CATEGORY_BADGES,
+  REGULATION_TYPE_BADGES,
+  REGULATION_TYPE_OPTIONS,
+  STATUS_BADGES,
+  formatCategoryLabel,
+  formatRegulationTypeLabel,
+  formatStatusLabel,
+  getRegulationTypeKey,
+  normalizeCategoryKey,
+} from '../lib/appTheme'
 
 interface TimelinePageProps {
   user: any
@@ -23,12 +36,14 @@ interface TimelinePageProps {
 
 interface TimelineFilters {
   categories: string[]
+  types: string[]
   statuses: string[]
   regions: string[]
 }
 
 const EMPTY_FILTERS: TimelineFilters = {
   categories: [],
+  types: [],
   statuses: [],
   regions: [],
 }
@@ -61,6 +76,7 @@ function searchMatches(regulation: Regulation, query: string) {
     regulation.full_description?.toLowerCase().includes(q) ||
     regulation.region?.toLowerCase().includes(q) ||
     regulation.category?.toLowerCase().includes(q) ||
+    formatRegulationTypeLabel(getRegulationTypeKey(regulation)).toLowerCase().includes(q) ||
     regulation.tags?.some((tag) => tag.toLowerCase().includes(q))
   )
 }
@@ -91,6 +107,7 @@ function downloadRegulationPdf(regulation: Regulation) {
         <h1>${regulation.title}</h1>
         <div class="meta">
           <div>Category: ${regulation.category}</div>
+          <div>Type: ${formatRegulationTypeLabel(getRegulationTypeKey(regulation))}</div>
           <div>Region: ${regulation.region}</div>
           <div>Status: ${formatStatusLabel(regulation.status)}</div>
           <div>Effective: ${regulation.effective_date ? format(new Date(regulation.effective_date), 'MMMM d, yyyy') : 'Unknown'}</div>
@@ -165,7 +182,7 @@ function SearchSuggestions({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onFocus={() => setIsOpen(true)}
-          placeholder="Search by title, description, region, category..."
+          placeholder="Search by title, description, region, or theme..."
           className="ui-input pl-10 pr-10"
         />
         {draft && (
@@ -197,8 +214,11 @@ function SearchSuggestions({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm text-[hsl(var(--foreground))]">{regulation.title}</p>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${CATEGORY_BADGES[regulation.category] || 'bg-slate-100 text-slate-600'}`}>
-                    {regulation.category}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${REGULATION_TYPE_BADGES[getRegulationTypeKey(regulation)] || 'bg-slate-100 text-slate-600'}`}>
+                    {formatRegulationTypeLabel(getRegulationTypeKey(regulation))}
+                  </span>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${CATEGORY_BADGES[normalizeCategoryKey(regulation.category)] || 'bg-slate-100 text-slate-600'}`}>
+                    {formatCategoryLabel(regulation.category)}
                   </span>
                   <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{regulation.region}</span>
                 </div>
@@ -223,16 +243,16 @@ function FilterOptionList({
   onToggle: (value: string) => void
 }) {
   return (
-    <div className="mb-4 last:mb-0">
-      <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">{label}</p>
-      <div className="space-y-1.5">
+    <div className="mb-2.5 last:mb-0">
+      <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">{label}</p>
+      <div className="space-y-1">
         {options.map((option) => {
           const active = selected.includes(option.value)
           return (
             <button
               key={option.value}
               onClick={() => onToggle(option.value)}
-              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
+              className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
                 active
                   ? 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'
                   : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))/0.55] hover:text-[hsl(var(--foreground))]'
@@ -240,13 +260,13 @@ function FilterOptionList({
             >
               <span>{option.label}</span>
               <span
-                className={`flex h-4 w-4 items-center justify-center rounded border ${
+                className={`flex h-3.5 w-3.5 items-center justify-center rounded border ${
                   active
                     ? 'border-[hsl(var(--primary))/0.22] bg-[hsl(var(--primary))/0.08] text-[hsl(var(--primary))]'
                     : 'border-[hsl(var(--border))] bg-white text-transparent'
                 }`}
               >
-                <Check size={11} />
+                <Check size={10} />
               </span>
             </button>
           )
@@ -316,7 +336,7 @@ function CompactMultiSelect({
 
       {open && (
         <div className="ui-filter-menu">
-          <div className="max-h-72 overflow-y-auto p-2">
+          <div className="max-h-80 overflow-y-auto p-1.5">
             <FilterOptionList
               label={label}
               options={options}
@@ -325,7 +345,7 @@ function CompactMultiSelect({
             />
           </div>
           {selected.length > 0 && (
-            <div className="border-t border-[hsl(var(--border))] px-3 py-2">
+            <div className="border-t border-[hsl(var(--border))] px-2.5 py-1.5">
               <button
                 type="button"
                 onClick={onClear}
@@ -364,12 +384,16 @@ function DesktopFiltersPanel({
   filters,
   onFiltersChange,
   uniqueRegions,
+  uniqueCategories,
+  uniqueTypes,
   totalCount,
   filteredCount,
 }: {
   filters: TimelineFilters
   onFiltersChange: (filters: TimelineFilters) => void
   uniqueRegions: string[]
+  uniqueCategories: string[]
+  uniqueTypes: { value: string; label: string }[]
   totalCount: number
   filteredCount: number
 }) {
@@ -389,9 +413,17 @@ function DesktopFiltersPanel({
     <div className="hidden md:block">
       <div className="flex flex-wrap items-center gap-2">
         <CompactMultiSelect
-          label="Category"
-          allLabel="All categories"
-          options={ESG_CATEGORIES.map((category) => ({ value: category, label: category }))}
+          label="Type"
+          allLabel="All types"
+          options={uniqueTypes}
+          selected={filters.types}
+          onToggle={(value) => toggleFilter('types', value)}
+          onClear={() => onFiltersChange({ ...filters, types: [] })}
+        />
+        <CompactMultiSelect
+          label="Theme"
+          allLabel="All themes"
+          options={uniqueCategories.map((category) => ({ value: category, label: category }))}
           selected={filters.categories}
           onToggle={(value) => toggleFilter('categories', value)}
           onClear={() => onFiltersChange({ ...filters, categories: [] })}
@@ -412,29 +444,22 @@ function DesktopFiltersPanel({
           onToggle={(value) => toggleFilter('statuses', value)}
           onClear={() => onFiltersChange({ ...filters, statuses: [] })}
         />
-
-        <div className="ml-auto flex items-center gap-3">
-          <p className="text-xs text-[hsl(var(--muted-foreground))]">
-            Showing <span className="font-semibold text-[hsl(var(--foreground))]">{filteredCount}</span> of{' '}
-            <span className="font-semibold text-[hsl(var(--foreground))]">{totalCount}</span>
-          </p>
-          {activeCount > 0 && (
-            <button
-              onClick={() => onFiltersChange(EMPTY_FILTERS)}
-              className="text-xs font-medium text-[hsl(var(--primary))] transition-colors hover:text-[hsl(var(--primary))/0.8]"
-            >
-              Clear all
-            </button>
-          )}
-        </div>
       </div>
 
-      {activeCount > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {activeCount > 0 && (
+          <>
+          {filters.types.map((type) => (
+            <ActiveFilterChip
+              key={`type-${type}`}
+              label={formatRegulationTypeLabel(type)}
+              onRemove={() => toggleFilter('types', type)}
+            />
+          ))}
           {filters.categories.map((category) => (
             <ActiveFilterChip
               key={`category-${category}`}
-              label={category}
+              label={formatCategoryLabel(category)}
               onRemove={() => toggleFilter('categories', category)}
             />
           ))}
@@ -452,8 +477,24 @@ function DesktopFiltersPanel({
               onRemove={() => toggleFilter('statuses', status)}
             />
           ))}
+          </>
+        )}
+
+        <div className="ml-auto flex items-center gap-3 text-xs">
+          <p className="text-[hsl(var(--muted-foreground))]">
+            Showing <span className="font-semibold text-[hsl(var(--foreground))]">{filteredCount}</span> of{' '}
+            <span className="font-semibold text-[hsl(var(--foreground))]">{totalCount}</span>
+          </p>
+          {activeCount > 0 && (
+            <button
+              onClick={() => onFiltersChange(EMPTY_FILTERS)}
+              className="font-medium text-[hsl(var(--primary))] transition-colors hover:text-[hsl(var(--primary))/0.8]"
+            >
+              Clear all
+            </button>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -464,12 +505,16 @@ function MobileFiltersDrawer({
   filters,
   onFiltersChange,
   uniqueRegions,
+  uniqueCategories,
+  uniqueTypes,
 }: {
   open: boolean
   onClose: () => void
   filters: TimelineFilters
   onFiltersChange: (filters: TimelineFilters) => void
   uniqueRegions: string[]
+  uniqueCategories: string[]
+  uniqueTypes: { value: string; label: string }[]
 }) {
   if (!open) return null
 
@@ -504,8 +549,14 @@ function MobileFiltersDrawer({
         </div>
 
         <FilterOptionList
-          label="Category"
-          options={ESG_CATEGORIES.map((category) => ({ value: category, label: category }))}
+          label="Type"
+          options={uniqueTypes}
+          selected={filters.types}
+          onToggle={(value) => toggleFilter('types', value)}
+        />
+        <FilterOptionList
+          label="Theme"
+          options={uniqueCategories.map((category) => ({ value: category, label: category }))}
           selected={filters.categories}
           onToggle={(value) => toggleFilter('categories', value)}
         />
@@ -542,7 +593,8 @@ function CompareModal({
   const [a, b] = regulations
 
   const rows = [
-    { label: 'Category', a: a.category, b: b.category },
+    { label: 'Type', a: formatRegulationTypeLabel(getRegulationTypeKey(a)), b: formatRegulationTypeLabel(getRegulationTypeKey(b)) },
+    { label: 'Theme', a: formatCategoryLabel(a.category), b: formatCategoryLabel(b.category) },
     { label: 'Region', a: a.region, b: b.region },
     { label: 'Status', a: formatStatusLabel(a.status), b: formatStatusLabel(b.status) },
     {
@@ -570,8 +622,11 @@ function CompareModal({
           {[a, b].map((regulation) => (
             <div key={regulation.id} className="surface-card-muted p-5">
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${CATEGORY_BADGES[regulation.category] || 'bg-slate-100 text-slate-600'}`}>
-                  {regulation.category}
+                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${REGULATION_TYPE_BADGES[getRegulationTypeKey(regulation)] || 'bg-slate-100 text-slate-600'}`}>
+                  {formatRegulationTypeLabel(getRegulationTypeKey(regulation))}
+                </span>
+                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${CATEGORY_BADGES[normalizeCategoryKey(regulation.category)] || 'bg-slate-100 text-slate-600'}`}>
+                  {formatCategoryLabel(regulation.category)}
                 </span>
                 <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_BADGES[regulation.status] || 'bg-slate-100 text-slate-600'}`}>
                   {formatStatusLabel(regulation.status)}
@@ -615,6 +670,7 @@ function CompareModal({
 function TimelineList({
   regulations,
   watchlist,
+  canUseBookmarks,
   onToggleWatch,
   compareSelected,
   onToggleCompare,
@@ -623,6 +679,7 @@ function TimelineList({
 }: {
   regulations: Regulation[]
   watchlist: string[]
+  canUseBookmarks: boolean
   onToggleWatch: (id: string) => void
   compareSelected: Regulation[]
   onToggleCompare: (regulation: Regulation) => void
@@ -659,8 +716,11 @@ function TimelineList({
                   <div className={`surface-card flex-1 p-4 transition-all group-hover:border-[hsl(var(--primary))/0.2] group-hover:shadow-sm ${selected ? 'ring-2 ring-[hsl(var(--primary))]' : ''}`}>
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${CATEGORY_BADGES[regulation.category] || 'bg-slate-100 text-slate-600'}`}>
-                          {regulation.category}
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${REGULATION_TYPE_BADGES[getRegulationTypeKey(regulation)] || 'bg-slate-100 text-slate-600'}`}>
+                          {formatRegulationTypeLabel(getRegulationTypeKey(regulation))}
+                        </span>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${CATEGORY_BADGES[normalizeCategoryKey(regulation.category)] || 'bg-slate-100 text-slate-600'}`}>
+                          {formatCategoryLabel(regulation.category)}
                         </span>
                         <span className="rounded-full bg-[hsl(var(--muted))] px-2 py-0.5 text-[10px] font-semibold text-[hsl(var(--muted-foreground))]">
                           {regulation.region}
@@ -689,13 +749,14 @@ function TimelineList({
                           {selected ? <Check size={16} /> : <Scale size={16} />}
                         </button>
 
-                        <button
-                          onClick={() => onToggleWatch(regulation.id)}
-                          className="rounded-lg p-1.5 text-[hsl(var(--muted-foreground))] transition-colors hover:text-amber-500"
-                          title="Watch"
-                        >
-                          <Star size={15} className={watchlist.includes(regulation.id) ? 'fill-amber-500 text-amber-500' : ''} />
-                        </button>
+                        <BookmarkHint showHint={!canUseBookmarks}>
+                          <button
+                            onClick={() => onToggleWatch(regulation.id)}
+                            className="rounded-lg p-1.5 text-[hsl(var(--muted-foreground))] transition-colors hover:text-amber-500"
+                          >
+                            <Star size={15} className={watchlist.includes(regulation.id) ? 'fill-amber-500 text-amber-500' : ''} />
+                          </button>
+                        </BookmarkHint>
                       </div>
                     </div>
 
@@ -771,6 +832,7 @@ function TimelineList({
 
 export default function TimelinePage({ user }: TimelinePageProps) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState<TimelineFilters>(EMPTY_FILTERS)
   const [showWatchlistOnly, setShowWatchlistOnly] = useState(false)
@@ -788,8 +850,8 @@ export default function TimelinePage({ user }: TimelinePageProps) {
 
   const fetchRegulations = async () => {
     try {
-      const { data } = await supabase.from('regulations').select('*').order('effective_date', { ascending: false })
-      const sorted = [...(data || [])].sort(
+      const data = await fetchAllRegulations()
+      const sorted = [...data].sort(
         (a, b) => new Date(getRegulationDate(b)).getTime() - new Date(getRegulationDate(a)).getTime()
       )
       setRegulations(sorted)
@@ -802,12 +864,7 @@ export default function TimelinePage({ user }: TimelinePageProps) {
 
   const fetchWatchlist = async () => {
     try {
-      const { data } = await supabase
-        .from('user_settings')
-        .select('watched_regulation_ids')
-        .eq('user_id', user.id)
-        .single()
-      setWatchlist(data?.watched_regulation_ids || [])
+      setWatchlist(await getUserWatchlist(user.id))
     } catch (error) {
       console.error('Error fetching watchlist:', error)
     }
@@ -818,18 +875,34 @@ export default function TimelinePage({ user }: TimelinePageProps) {
     [regulations]
   )
 
+  const uniqueCategories = useMemo(
+    () =>
+      [...new Set(regulations.map((regulation) => normalizeCategoryKey(regulation.category)).filter(Boolean))].sort(),
+    [regulations]
+  )
+
+  const uniqueTypes = useMemo(
+    () =>
+      REGULATION_TYPE_OPTIONS.filter((option) =>
+        regulations.some((regulation) => getRegulationTypeKey(regulation) === option.value)
+      ),
+    [regulations]
+  )
+
   const filtered = useMemo(() => {
     return regulations.filter((regulation) => {
       const matchesSearch = searchMatches(regulation, searchQuery)
+      const matchesType =
+        filters.types.length === 0 || filters.types.includes(getRegulationTypeKey(regulation))
       const matchesCategory =
-        filters.categories.length === 0 || filters.categories.includes(regulation.category)
+        filters.categories.length === 0 || filters.categories.includes(normalizeCategoryKey(regulation.category))
       const matchesStatus =
         filters.statuses.length === 0 || filters.statuses.includes(regulation.status)
       const matchesRegion =
         filters.regions.length === 0 || filters.regions.includes(regulation.region)
       const matchesWatchlist = !showWatchlistOnly || watchlist.includes(regulation.id)
 
-      return matchesSearch && matchesCategory && matchesStatus && matchesRegion && matchesWatchlist
+      return matchesSearch && matchesType && matchesCategory && matchesStatus && matchesRegion && matchesWatchlist
     })
   }, [filters, regulations, searchQuery, showWatchlistOnly, watchlist])
 
@@ -838,22 +911,21 @@ export default function TimelinePage({ user }: TimelinePageProps) {
 
   const toggleWatch = async (id: string) => {
     if (!user) {
-      navigate('/auth')
+      navigate(withAuthModal(location.pathname, location.search))
       return
     }
 
-    const nextWatchlist = watchlist.includes(id)
+    const previousWatchlist = watchlist
+    const nextWatchlist = previousWatchlist.includes(id)
       ? watchlist.filter((item) => item !== id)
       : [...watchlist, id]
 
     setWatchlist(nextWatchlist)
 
     try {
-      await supabase
-        .from('user_settings')
-        .update({ watched_regulation_ids: nextWatchlist })
-        .eq('user_id', user.id)
+      await saveUserWatchlist(user.id, nextWatchlist)
     } catch (error) {
+      setWatchlist(previousWatchlist)
       console.error('Error updating watchlist:', error)
     }
   }
@@ -903,6 +975,8 @@ export default function TimelinePage({ user }: TimelinePageProps) {
           filters={filters}
           onFiltersChange={setFilters}
           uniqueRegions={uniqueRegions}
+          uniqueCategories={uniqueCategories}
+          uniqueTypes={uniqueTypes}
           totalCount={regulations.length}
           filteredCount={filtered.length}
         />
@@ -933,24 +1007,7 @@ export default function TimelinePage({ user }: TimelinePageProps) {
             <SlidersHorizontal size={14} />
             Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
           </button>
-
-          {hasSearchOrFilters && (
-            <button
-              onClick={() => {
-                setFilters(EMPTY_FILTERS)
-                setSearchQuery('')
-              }}
-              className="ml-auto text-xs font-medium text-[hsl(var(--primary))]"
-            >
-              Clear all
-            </button>
-          )}
         </div>
-
-        <p className="text-xs text-[hsl(var(--muted-foreground))]">
-          Showing <span className="font-semibold text-[hsl(var(--foreground))]">{filtered.length}</span> of{' '}
-          <span className="font-semibold text-[hsl(var(--foreground))]">{regulations.length}</span> regulations
-        </p>
       </div>
 
       <div className="mb-4 hidden items-center gap-2 md:flex">
@@ -969,10 +1026,22 @@ export default function TimelinePage({ user }: TimelinePageProps) {
 
       {activeFilterCount > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 md:hidden">
+          {filters.types.map((type) => (
+            <ActiveFilterChip
+              key={`mobile-type-${type}`}
+              label={formatRegulationTypeLabel(type)}
+              onRemove={() =>
+                setFilters((current) => ({
+                  ...current,
+                  types: current.types.filter((item) => item !== type),
+                }))
+              }
+            />
+          ))}
           {filters.categories.map((category) => (
             <ActiveFilterChip
               key={`mobile-category-${category}`}
-              label={category}
+              label={formatCategoryLabel(category)}
               onRemove={() =>
                 setFilters((current) => ({
                   ...current,
@@ -1008,10 +1077,29 @@ export default function TimelinePage({ user }: TimelinePageProps) {
         </div>
       )}
 
+      <div className="mb-4 flex items-center gap-3 text-xs md:hidden">
+        <p className="text-[hsl(var(--muted-foreground))]">
+          Showing <span className="font-semibold text-[hsl(var(--foreground))]">{filtered.length}</span> of{' '}
+          <span className="font-semibold text-[hsl(var(--foreground))]">{regulations.length}</span>
+        </p>
+        {hasSearchOrFilters && (
+          <button
+            onClick={() => {
+              setFilters(EMPTY_FILTERS)
+              setSearchQuery('')
+            }}
+            className="font-medium text-[hsl(var(--primary))] transition-colors hover:text-[hsl(var(--primary))/0.8]"
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+
       {filtered.length > 0 ? (
         <TimelineList
           regulations={filtered}
           watchlist={watchlist}
+          canUseBookmarks={Boolean(user)}
           onToggleWatch={toggleWatch}
           compareSelected={selectedToCompare}
           onToggleCompare={toggleCompare}
@@ -1064,6 +1152,8 @@ export default function TimelinePage({ user }: TimelinePageProps) {
         filters={filters}
         onFiltersChange={setFilters}
         uniqueRegions={uniqueRegions}
+        uniqueCategories={uniqueCategories}
+        uniqueTypes={uniqueTypes}
       />
     </div>
   )

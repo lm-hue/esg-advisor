@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { fetchAllRegulations } from '../lib/regulations'
 import { Send, Bot, User, Trash2, X } from 'lucide-react'
 
 interface Message {
@@ -33,10 +33,7 @@ export default function AIAdvisorPage({ user }: AIAdvisorPageProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    supabase
-      .from('regulations')
-      .select('title, summary, region, category, status, effective_date')
-      .then(({ data }) => setRegulations(data || []))
+    fetchAllRegulations().then((data) => setRegulations(data || []))
   }, [])
 
   useEffect(() => {
@@ -62,7 +59,7 @@ export default function AIAdvisorPage({ user }: AIAdvisorPageProps) {
     const normalizedQuery = query.toLowerCase()
     const relevant = regulations.filter((regulation) =>
       regulation.title.toLowerCase().includes(normalizedQuery) ||
-      regulation.summary.toLowerCase().includes(normalizedQuery) ||
+      (regulation.summary || regulation.description || '').toLowerCase().includes(normalizedQuery) ||
       regulation.region.toLowerCase().includes(normalizedQuery) ||
       regulation.category.toLowerCase().includes(normalizedQuery)
     ).slice(0, 5)
@@ -71,7 +68,7 @@ export default function AIAdvisorPage({ user }: AIAdvisorPageProps) {
 
     return '\n\nRelevant regulations from the database:\n' +
       relevant.map((regulation) =>
-        `- ${regulation.title} (${regulation.region}, ${regulation.category}, ${regulation.status}${regulation.effective_date ? ', effective ' + regulation.effective_date : ''}): ${regulation.summary}`
+        `- ${regulation.title} (${regulation.region}, ${regulation.category}, ${regulation.status}${regulation.effective_date ? ', effective ' + regulation.effective_date : ''}): ${regulation.summary || regulation.description || 'No summary available.'}`
       ).join('\n')
   }
 

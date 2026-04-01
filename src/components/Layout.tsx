@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { withAuthModal } from '../lib/authModal'
 import {
   Menu, X, LogOut, LogIn, BookOpen, Clock, Cpu, Users, Bell, Book, BarChart2, Leaf
 } from 'lucide-react'
@@ -36,7 +37,10 @@ export default function Layout({ user, isAdmin }: LayoutProps) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    navigate('/auth')
+  }
+
+  const handleOpenAuth = () => {
+    navigate(withAuthModal(location.pathname, location.search))
   }
 
   const isActive = (path: string) =>
@@ -136,7 +140,7 @@ export default function Layout({ user, isAdmin }: LayoutProps) {
                 </div>
               ) : (
                 <button
-                  onClick={() => navigate('/auth')}
+                  onClick={handleOpenAuth}
                   className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                     sidebarOpen ? 'justify-center gap-2' : 'justify-center'
                   } bg-[#0f7b5c] text-white hover:bg-[#116d53]`}
@@ -186,7 +190,7 @@ export default function Layout({ user, isAdmin }: LayoutProps) {
                     <span className="max-w-[180px] truncate">{user.email}</span>
                   </div>
                 ) : (
-                  <button onClick={() => navigate('/auth')} className="ui-button-primary">
+                  <button onClick={handleOpenAuth} className="ui-button-primary">
                     <LogIn size={16} />
                     Sign in
                   </button>

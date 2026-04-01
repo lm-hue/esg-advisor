@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
+import { isAuthModalOpen, withoutAuthModal } from './lib/authModal'
 import Layout from './components/Layout'
-import AuthPage from './pages/AuthPage'
+import AuthModal from './components/AuthModal'
 import RegulationsPage from './pages/RegulationsPage'
 import RegulationDetailPage from './pages/RegulationDetailPage'
 import TimelinePage from './pages/TimelinePage'
@@ -13,6 +14,8 @@ import GlossaryPage from './pages/GlossaryPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 
 function App() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [user, setUser] = useState<any>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -68,29 +71,45 @@ function App() {
     )
   }
 
-  return (
-    <Routes>
-      {/* Auth — redirect home if already logged in */}
-      <Route
-        path="/auth"
-        element={user ? <Navigate to="/regulations" replace /> : <AuthPage />}
-      />
+  const authModalOpen = isAuthModalOpen(location.search)
 
-      {/* All pages public — Layout always visible */}
-      <Route element={<Layout user={user} isAdmin={isAdmin} />}>
-        <Route path="/" element={<Navigate to="/regulations" replace />} />
-        <Route path="/regulations" element={<RegulationsPage user={user} />} />
-        <Route path="/regulations/:id" element={<RegulationDetailPage user={user} />} />
-        <Route path="/timeline" element={<TimelinePage user={user} />} />
-        <Route path="/glossary" element={<GlossaryPage />} />
-        <Route path="/advisor" element={<AIAdvisorPage user={user} />} />
-        <Route path="/community" element={<CommunityPage user={user} />} />
-        <Route path="/alerts" element={<AlertsPage user={user} />} />
-        {isAdmin && (
-          <Route path="/analytics" element={<AnalyticsPage />} />
-        )}
-      </Route>
-    </Routes>
+  const closeAuthModal = () => {
+    if (location.pathname === '/auth') {
+      navigate('/regulations', { replace: true })
+      return
+    }
+
+    navigate(withoutAuthModal(location.pathname, location.search), { replace: true })
+  }
+
+  return (
+    <>
+      <Routes>
+        <Route path="/auth" element={<Navigate to="/regulations?auth=1" replace />} />
+
+        <Route element={<Layout user={user} isAdmin={isAdmin} />}>
+          <Route path="/" element={<Navigate to="/regulations" replace />} />
+          <Route path="/regulations" element={<RegulationsPage user={user} />} />
+          <Route path="/regulations/:id" element={<RegulationDetailPage user={user} />} />
+          <Route path="/timeline" element={<TimelinePage user={user} />} />
+          <Route path="/glossary" element={<GlossaryPage />} />
+          <Route path="/advisor" element={<AIAdvisorPage user={user} />} />
+          <Route path="/community" element={<CommunityPage user={user} />} />
+          <Route path="/alerts" element={<AlertsPage user={user} />} />
+          {isAdmin && (
+            <Route path="/analytics" element={<AnalyticsPage />} />
+          )}
+        </Route>
+      </Routes>
+
+      <AuthModal
+        open={authModalOpen}
+        user={user}
+        currentPath={location.pathname}
+        currentSearch={location.search}
+        onClose={closeAuthModal}
+      />
+    </>
   )
 }
 

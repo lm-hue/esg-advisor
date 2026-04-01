@@ -35,13 +35,15 @@ export default function GlossaryPage() {
           <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Try a different search phrase.</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-4">
           {filtered.map((item) => (
-            <div key={item.term} className="surface-card p-5 transition-all hover:-translate-y-0.5 hover:border-[hsl(var(--primary)/0.28)]">
-              <span className="mb-3 inline-flex rounded-full bg-[hsl(var(--primary)/0.1)] px-3 py-1 text-xs font-semibold text-[hsl(var(--primary))]">
-                {item.term}
-              </span>
-              <p className="text-sm leading-7 text-[hsl(var(--muted-foreground))]">{item.definition}</p>
+            <div key={item.term} className="surface-card p-5 transition-all hover:border-[hsl(var(--primary)/0.28)]">
+              <div className="mb-3">
+                <span className="inline-flex rounded-full bg-[hsl(var(--primary)/0.1)] px-3 py-1 text-xs font-semibold text-[hsl(var(--primary))]">
+                  {item.term}
+                </span>
+              </div>
+              <p className="text-sm leading-7 text-[hsl(var(--foreground))/0.82]">{item.definition}</p>
             </div>
           ))}
         </div>
