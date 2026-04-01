@@ -1,35 +1,262 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    --font-sans: 'Inter', sans-serif;
+    --font-display: 'Playfair Display', serif;
+    --background: 150 10% 97%;
+    --foreground: 160 20% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 160 20% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 160 20% 10%;
+    --primary: 162 63% 24%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 150 15% 92%;
+    --secondary-foreground: 160 20% 15%;
+    --muted: 150 10% 94%;
+    --muted-foreground: 160 10% 45%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 0 0% 100%;
+    --border: 150 12% 89%;
+    --input: 150 12% 89%;
+    --ring: 162 63% 24%;
+    --sidebar-background: 160 20% 10%;
+    --sidebar-foreground: 150 10% 90%;
+    --sidebar-accent: 160 15% 16%;
+    --sidebar-border: 160 15% 18%;
+    --radius: 0.875rem;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    font-family: var(--font-sans);
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .page-shell {
+    @apply mx-auto w-full max-w-7xl px-4 py-6 md:px-8 md:py-10;
+  }
+
+  .page-shell-narrow {
+    @apply mx-auto w-full max-w-3xl px-4 py-6 md:px-8 md:py-10;
+  }
+
+  .page-header {
+    @apply mb-6 flex items-start gap-3 md:mb-8;
+  }
+
+  .page-icon {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl;
+    background: hsl(var(--primary) / 0.12);
+    color: hsl(var(--primary));
+  }
+
+  .page-title {
+    @apply font-display text-2xl font-semibold tracking-tight md:text-3xl;
+    color: hsl(var(--foreground));
+  }
+
+  .page-subtitle {
+    @apply mt-1 text-sm;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .surface-card {
+    @apply rounded-2xl border bg-white shadow-sm;
+    border-color: hsl(var(--border));
+  }
+
+  .surface-card-muted {
+    @apply rounded-2xl border shadow-sm;
+    background: hsl(var(--background));
+    border-color: hsl(var(--border));
+  }
+
+  .metric-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium;
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--border));
+  }
+
+  .ui-input,
+  .ui-select,
+  .ui-textarea {
+    @apply w-full rounded-xl border bg-white px-4 py-3 text-sm transition;
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--input));
+  }
+
+  .ui-input::placeholder,
+  .ui-textarea::placeholder {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .ui-input:focus,
+  .ui-select:focus,
+  .ui-textarea:focus {
+    outline: none;
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 4px hsl(var(--ring) / 0.12);
+  }
+
+  .ui-button-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+
+  .ui-button-primary:hover {
+    background: hsl(var(--primary) / 0.92);
+  }
+
+  .ui-button-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors;
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--border));
+  }
+
+  .ui-button-secondary:hover {
+    background: hsl(var(--muted) / 0.75);
+  }
+
+  .ui-button-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .ui-button-ghost:hover {
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+  }
+
+  .ui-select-compact {
+    @apply w-full rounded-xl border bg-white px-3 py-2 text-xs font-medium transition-colors;
+    color: hsl(var(--muted-foreground));
+    border-color: hsl(var(--input));
+  }
+
+  .ui-select-compact:focus {
+    outline: none;
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 4px hsl(var(--ring) / 0.12);
+  }
+
+  .ui-filter-trigger {
+    @apply inline-flex min-w-[10.75rem] items-center justify-between gap-2 rounded-xl border bg-white px-3 py-2 text-left text-xs font-medium transition-colors;
+    color: hsl(var(--muted-foreground));
+    border-color: hsl(var(--input));
+  }
+
+  .ui-filter-trigger:hover {
+    background: hsl(var(--muted) / 0.4);
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--border));
+  }
+
+  .ui-filter-trigger:focus {
+    outline: none;
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 4px hsl(var(--ring) / 0.12);
+  }
+
+  .ui-filter-trigger-active {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--border));
+  }
+
+  .ui-filter-menu {
+    @apply absolute left-0 top-full z-40 mt-2 w-72 overflow-hidden rounded-xl border bg-white shadow-sm;
+    border-color: hsl(var(--border));
+  }
+
+  .ui-active-filter-chip {
+    @apply inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors;
+    background: hsl(var(--background));
+    color: hsl(var(--muted-foreground));
+    border-color: hsl(var(--border));
+  }
+
+  .ui-active-filter-chip:hover {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--border));
+    background: hsl(var(--muted) / 0.55);
+  }
+
+  .ui-filter-pill {
+    @apply inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all;
+    background: hsl(var(--background));
+    color: hsl(var(--muted-foreground));
+    border-color: hsl(var(--border));
+  }
+
+  .ui-filter-pill:hover {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--primary) / 0.25);
+  }
+
+  .ui-filter-pill-active {
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+    border-color: hsl(var(--primary) / 0.3);
+  }
+
+  .ui-section-title {
+    @apply text-base font-semibold;
+    color: hsl(var(--foreground));
+  }
+
+  .ui-caption {
+    @apply text-xs uppercase tracking-[0.18em];
+    color: hsl(var(--muted-foreground));
+  }
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  font-family: var(--font-sans);
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
-
-/* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+  background: #d1d5db;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #9ca3af;
 }

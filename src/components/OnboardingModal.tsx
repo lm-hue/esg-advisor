@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { REGIONS, ESG_CATEGORIES } from '../types'
-import { ChevronRight, ChevronLeft } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Sparkles } from 'lucide-react'
 
 interface OnboardingModalProps {
   userSettings: any
@@ -48,52 +48,59 @@ export default function OnboardingModal({ userSettings, userId, onComplete }: On
   const canProceed = step === 1 ? industry.trim() !== '' : step === 2 ? regions.length > 0 : categories.length > 0
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
-        {/* Step Indicator */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+      <div className="surface-card max-w-2xl w-full p-8 shadow-2xl">
         <div className="mb-8">
-          <div className="flex justify-between mb-4">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="page-icon">
+              <Sparkles size={18} />
+            </div>
+            <div>
+              <h2 className="font-display text-2xl font-semibold text-[hsl(var(--foreground))]">Set up your workspace</h2>
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">We’ll tailor the app to your industry, regions, and ESG priorities.</p>
+            </div>
+          </div>
+
+          <div className="mb-3 flex justify-between">
             {[1, 2, 3].map((s) => (
               <div
                 key={s}
                 className={`h-2 flex-1 rounded-full mx-1 transition-all ${
-                  s <= step ? 'bg-blue-500' : 'bg-slate-200'
+                  s <= step ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted))]'
                 }`}
               />
             ))}
           </div>
-          <p className="text-sm text-slate-600">Step {step} of 3</p>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">Step {step} of 3</p>
         </div>
 
-        {/* Step 1: Industry */}
         {step === 1 && (
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">What's your industry?</h2>
-            <p className="text-slate-600 mb-6">Help us tailor recommendations for your sector.</p>
+            <h2 className="mb-4 text-2xl font-semibold text-[hsl(var(--foreground))]">What's your industry?</h2>
+            <p className="mb-6 text-[hsl(var(--muted-foreground))]">Help us tailor recommendations for your sector.</p>
             <input
               type="text"
               value={industry}
               onChange={(e) => setIndustry(e.target.value)}
               placeholder="e.g., Finance, Energy, Technology..."
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="ui-input"
             />
           </div>
         )}
 
-        {/* Step 2: Regions */}
         {step === 2 && (
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Which regions do you operate in?</h2>
-            <p className="text-slate-600 mb-6">Select all that apply.</p>
+            <h2 className="mb-4 text-2xl font-semibold text-[hsl(var(--foreground))]">Which regions do you operate in?</h2>
+            <p className="mb-6 text-[hsl(var(--muted-foreground))]">Select all that apply.</p>
             <div className="grid grid-cols-2 gap-3">
               {REGIONS.map((region) => (
                 <button
                   key={region}
                   onClick={() => toggleRegion(region)}
-                  className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                  className={`rounded-xl border px-4 py-3 font-medium transition-all ${
                     regions.includes(region)
-                      ? 'bg-blue-100 border-2 border-blue-500 text-blue-700'
-                      : 'bg-slate-100 border-2 border-slate-200 text-slate-600 hover:border-slate-300'
+                      ? 'border-[hsl(var(--primary)/0.3)] bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))]'
+                      : 'border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary)/0.2)]'
                   }`}
                 >
                   {region}
@@ -103,20 +110,19 @@ export default function OnboardingModal({ userSettings, userId, onComplete }: On
           </div>
         )}
 
-        {/* Step 3: ESG Categories */}
         {step === 3 && (
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Focus ESG categories</h2>
-            <p className="text-slate-600 mb-6">Choose areas most relevant to your business.</p>
+            <h2 className="mb-4 text-2xl font-semibold text-[hsl(var(--foreground))]">Focus ESG categories</h2>
+            <p className="mb-6 text-[hsl(var(--muted-foreground))]">Choose areas most relevant to your business.</p>
             <div className="space-y-3">
               {ESG_CATEGORIES.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => toggleCategory(cat)}
-                  className={`w-full px-4 py-3 rounded-lg font-medium text-left transition-all border-2 ${
+                  className={`w-full rounded-xl border px-4 py-3 text-left font-medium transition-all ${
                     categories.includes(cat)
-                      ? 'bg-blue-100 border-blue-500 text-blue-700'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
+                      ? 'border-[hsl(var(--primary)/0.3)] bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))]'
+                      : 'border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] hover:border-[hsl(var(--primary)/0.2)]'
                   }`}
                 >
                   {cat}
@@ -126,12 +132,11 @@ export default function OnboardingModal({ userSettings, userId, onComplete }: On
           </div>
         )}
 
-        {/* Buttons */}
         <div className="flex justify-between mt-8">
           <button
             onClick={() => setStep(Math.max(1, step - 1))}
             disabled={step === 1}
-            className="flex items-center px-6 py-2 text-slate-700 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="ui-button-ghost disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ChevronLeft size={20} className="mr-2" />
             Previous
@@ -141,7 +146,7 @@ export default function OnboardingModal({ userSettings, userId, onComplete }: On
             <button
               onClick={() => setStep(step + 1)}
               disabled={!canProceed}
-              className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="ui-button-primary disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next
               <ChevronRight size={20} className="ml-2" />
@@ -150,7 +155,7 @@ export default function OnboardingModal({ userSettings, userId, onComplete }: On
             <button
               onClick={handleComplete}
               disabled={!canProceed || loading}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="ui-button-primary disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? 'Completing...' : 'Complete'}
             </button>

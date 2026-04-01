@@ -4,6 +4,7 @@ import { Auth } from '@supabase/auth-ui-react'
 import { ThemeSupa } from '@supabase/auth-ui-shared'
 import { supabase } from '../lib/supabase'
 import OnboardingModal from '../components/OnboardingModal'
+import { Leaf } from 'lucide-react'
 
 export default function AuthPage() {
   const navigate = useNavigate()
@@ -24,30 +25,29 @@ export default function AuthPage() {
 
     checkSession()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          setUser(session.user)
-          await checkOnboarding(session.user.id)
-        } else {
-          setUser(null)
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setUser(session.user)
+        await checkOnboarding(session.user.id)
+      } else {
+        setUser(null)
       }
-    )
+    })
 
     return () => subscription?.unsubscribe()
   }, [])
 
   const checkOnboarding = async (userId: string) => {
     try {
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('user_settings')
         .select('*')
         .eq('user_id', userId)
         .single()
 
       if (error && error.code === 'PGRST116') {
-        // No user settings found, create default
         const { data: newSettings } = await supabase
           .from('user_settings')
           .insert({
@@ -65,6 +65,7 @@ export default function AuthPage() {
           })
           .select()
           .single()
+
         setUserSettings(newSettings)
         setShowOnboarding(true)
       } else if (data) {
@@ -87,10 +88,10 @@ export default function AuthPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--background))]">
+        <div className="surface-card flex items-center gap-3 px-5 py-4">
+          <div className="h-6 w-6 animate-spin rounded-full border-4 border-[hsl(var(--primary)/0.2)] border-t-[hsl(var(--primary))]" />
+          <p className="text-sm font-medium text-[hsl(var(--foreground))]">Loading sign-in...</p>
         </div>
       </div>
     )
@@ -102,28 +103,70 @@ export default function AuthPage() {
 
   if (user && !showOnboarding) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="text-center">
-          <p className="text-slate-600">Redirecting...</p>
+      <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--background))]">
+        <div className="surface-card flex items-center gap-3 px-5 py-4">
+          <div className="h-6 w-6 animate-spin rounded-full border-4 border-[hsl(var(--primary)/0.2)] border-t-[hsl(var(--primary))]" />
+          <p className="text-sm font-medium text-[hsl(var(--foreground))]">Preparing workspace...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">ESG Advisor</h1>
-          <p className="text-slate-600">Your AI-powered ESG compliance guide</p>
+    <div className="min-h-screen bg-[hsl(var(--background))] px-4 py-10 md:px-8">
+      <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="hidden lg:block">
+          <div className="max-w-xl">
+            <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-[hsl(var(--border))] bg-white px-4 py-2 text-sm font-medium text-[hsl(var(--foreground))]">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))]">
+                <Leaf size={16} />
+              </span>
+              RegulESG Advisor Workspace
+            </div>
+            <h1 className="font-display text-5xl font-semibold leading-tight text-[hsl(var(--foreground))]">
+              Sustainability compliance, styled like the reference app.
+            </h1>
+            <p className="mt-4 text-lg leading-8 text-[hsl(var(--muted-foreground))]">
+              Sign in to track regulations, monitor deadlines, configure alerts, and ask your AI advisor questions about ESG reporting obligations.
+            </p>
+          </div>
         </div>
 
-        <Auth
-          supabaseClient={supabase}
-          appearance={{ theme: ThemeSupa }}
-          providers={[]}
-          redirectTo={`${window.location.origin}/regulations`}
-        />
+        <div className="surface-card mx-auto w-full max-w-md p-8">
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))]">
+              <Leaf size={20} />
+            </div>
+            <h1 className="font-display text-3xl font-semibold text-[hsl(var(--foreground))]">RegulESG</h1>
+            <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Your AI-powered ESG compliance guide</p>
+          </div>
+
+          <Auth
+            supabaseClient={supabase}
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: {
+                  colors: {
+                    brand: 'hsl(162 63% 24%)',
+                    brandAccent: 'hsl(162 63% 20%)',
+                    inputBackground: '#ffffff',
+                    inputBorder: 'hsl(150 12% 89%)',
+                    inputBorderHover: 'hsl(162 63% 24%)',
+                    inputBorderFocus: 'hsl(162 63% 24%)',
+                  },
+                  radii: {
+                    borderRadiusButton: '12px',
+                    buttonBorderRadius: '12px',
+                    inputBorderRadius: '12px',
+                  },
+                },
+              },
+            }}
+            providers={[]}
+            redirectTo={`${window.location.origin}/regulations`}
+          />
+        </div>
       </div>
     </div>
   )
