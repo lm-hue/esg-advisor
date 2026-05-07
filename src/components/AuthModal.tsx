@@ -1,21 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Auth } from '@supabase/auth-ui-react'
-import { ThemeSupa } from '@supabase/auth-ui-shared'
+import { useEffect, useState } from 'react'
 import { X, Leaf } from 'lucide-react'
-import { supabase } from '../lib/supabase'
 import { ensureUserSettings } from '../lib/userSettings'
-import { withoutAuthModal } from '../lib/authModal'
 import OnboardingModal from './OnboardingModal'
+import AuthPanel from './AuthPanel'
 
 interface AuthModalProps {
   open: boolean
   user: any
-  currentPath: string
-  currentSearch: string
   onClose: () => void
 }
 
-export default function AuthModal({ open, user, currentPath, currentSearch, onClose }: AuthModalProps) {
+export default function AuthModal({ open, user, onClose }: AuthModalProps) {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [userSettings, setUserSettings] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -68,11 +63,6 @@ export default function AuthModal({ open, user, currentPath, currentSearch, onCl
     }
   }, [open, user, onClose])
 
-  const redirectTo = useMemo(() => {
-    const nextPath = withoutAuthModal(currentPath, currentSearch)
-    return `${window.location.origin}${nextPath || '/regulations'}`
-  }, [currentPath, currentSearch])
-
   if (!open) return null
 
   if (user && showOnboarding && userSettings) {
@@ -104,7 +94,7 @@ export default function AuthModal({ open, user, currentPath, currentSearch, onCl
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))]">
                 <Leaf size={16} />
               </span>
-              RegulESG Advisor Workspace
+              ESG Compass Advisor Workspace
             </div>
 
             <div className="mt-10 max-w-sm">
@@ -132,7 +122,7 @@ export default function AuthModal({ open, user, currentPath, currentSearch, onCl
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))]">
                   <Leaf size={20} />
                 </div>
-                <h1 className="font-display text-3xl font-semibold text-[hsl(var(--foreground))]">RegulESG</h1>
+                <h1 className="font-display text-3xl font-semibold text-[hsl(var(--foreground))]">ESG Compass</h1>
                 <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Your AI-powered ESG compliance guide</p>
               </div>
 
@@ -144,31 +134,7 @@ export default function AuthModal({ open, user, currentPath, currentSearch, onCl
                   </div>
                 </div>
               ) : (
-                <Auth
-                  supabaseClient={supabase}
-                  appearance={{
-                    theme: ThemeSupa,
-                    variables: {
-                      default: {
-                        colors: {
-                          brand: 'hsl(162 63% 24%)',
-                          brandAccent: 'hsl(162 63% 20%)',
-                          inputBackground: '#ffffff',
-                          inputBorder: 'hsl(150 12% 89%)',
-                          inputBorderHover: 'hsl(162 63% 24%)',
-                          inputBorderFocus: 'hsl(162 63% 24%)',
-                        },
-                        radii: {
-                          borderRadiusButton: '12px',
-                          buttonBorderRadius: '12px',
-                          inputBorderRadius: '12px',
-                        },
-                      },
-                    },
-                  }}
-                  providers={[]}
-                  redirectTo={redirectTo}
-                />
+                <AuthPanel embedded />
               )}
             </div>
           </div>

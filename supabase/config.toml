@@ -1,0 +1,7 @@
+project_id = "twjaqynuamghrobhdasf"
+
+[functions.ai-advisor]
+verify_jwt = false
+
+[functions.auth-signup]
+verify_jwt = false

@@ -12,6 +12,13 @@ import CommunityPage from './pages/CommunityPage'
 import AlertsPage from './pages/AlertsPage'
 import GlossaryPage from './pages/GlossaryPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import CompareRegionsPage from './pages/CompareRegionsPage'
+import AssessmentPage from './pages/AssessmentPage'
+import WorldMapPage from './pages/WorldMapPage'
+import GuidePage from './pages/GuidePage'
+import DirectionTwoConceptPage from './pages/DirectionTwoConceptPage'
+import SourceDocumentPage from './pages/SourceDocumentPage'
+import AuthCallbackPage from './pages/AuthCallbackPage'
 
 function App() {
   const location = useLocation()
@@ -21,43 +28,42 @@ function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data } = await supabase.auth.getSession()
-        if (data?.session) {
-          setUser(data.session.user)
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', data.session.user.id)
-            .single()
-          setIsAdmin(profile?.role === 'admin')
-        }
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkAuth()
+    let initialized = false
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         if (session?.user) {
           setUser(session.user)
-          const { data: profile } = await supabase
+          // Fetch profile role in background — don't block the loading state
+          supabase
             .from('profiles')
             .select('role')
             .eq('id', session.user.id)
-            .single()
-          setIsAdmin(profile?.role === 'admin')
+            .maybeSingle()
+            .then(({ data: profile }) => setIsAdmin(profile?.role === 'admin'), () => {})
         } else {
           setUser(null)
           setIsAdmin(false)
         }
+        if (!initialized) {
+          initialized = true
+          setLoading(false)
+        }
       }
     )
 
-    return () => subscription?.unsubscribe()
+    // Safety net: clear spinner if onAuthStateChange never fires
+    const timeout = setTimeout(() => {
+      if (!initialized) {
+        initialized = true
+        setLoading(false)
+      }
+    }, 8000)
+
+    return () => {
+      subscription?.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [])
 
   if (loading) {
@@ -75,7 +81,7 @@ function App() {
 
   const closeAuthModal = () => {
     if (location.pathname === '/auth') {
-      navigate('/regulations', { replace: true })
+      navigate('/esg-home', { replace: true })
       return
     }
 
@@ -85,13 +91,22 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/auth" element={<Navigate to="/regulations?auth=1" replace />} />
+        <Route path="/auth" element={<Navigate to="/esg-home?auth=1" replace />} />
+        <Route path="/regulations" element={<Navigate to="/esg-home" replace />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
         <Route element={<Layout user={user} isAdmin={isAdmin} />}>
-          <Route path="/" element={<Navigate to="/regulations" replace />} />
-          <Route path="/regulations" element={<RegulationsPage user={user} />} />
-          <Route path="/regulations/:id" element={<RegulationDetailPage user={user} />} />
+          <Route path="/" element={<Navigate to="/esg-home" replace />} />
+          <Route path="/esg-home" element={<RegulationsPage user={user} />} />
+          <Route path="/esg-home/:id" element={<RegulationDetailPage user={user} />} />
+          <Route path="/sources/:documentId" element={<SourceDocumentPage />} />
           <Route path="/timeline" element={<TimelinePage user={user} />} />
+          <Route path="/compare" element={<CompareRegionsPage />} />
+          <Route path="/regulatory-map" element={<WorldMapPage />} />
+          <Route path="/assessment" element={<AssessmentPage />} />
+          <Route path="/how-it-works" element={<GuidePage user={user} />} />
+          <Route path="/framework-library" element={<DirectionTwoConceptPage user={user} />} />
+          <Route path="/framework-library/:id" element={<RegulationDetailPage user={user} />} />
           <Route path="/glossary" element={<GlossaryPage />} />
           <Route path="/advisor" element={<AIAdvisorPage user={user} />} />
           <Route path="/community" element={<CommunityPage user={user} />} />
@@ -105,8 +120,6 @@ function App() {
       <AuthModal
         open={authModalOpen}
         user={user}
-        currentPath={location.pathname}
-        currentSearch={location.search}
         onClose={closeAuthModal}
       />
     </>

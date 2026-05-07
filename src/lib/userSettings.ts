@@ -38,7 +38,17 @@ export async function ensureUserSettings(userId: string) {
     .single()
 
   if (insertError) {
-    throw insertError
+    const { data: existing, error: existingError } = await supabase
+      .from('user_settings')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (existingError || !existing) {
+      throw insertError
+    }
+
+    return existing
   }
 
   return inserted
