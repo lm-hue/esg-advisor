@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import { supabase } from './lib/supabase'
 import { isAuthModalOpen, withoutAuthModal } from './lib/authModal'
 import Layout from './components/Layout'
@@ -122,6 +123,7 @@ function App() {
         user={user}
         onClose={closeAuthModal}
       />
+      <Analytics />
     </>
   )
 }
