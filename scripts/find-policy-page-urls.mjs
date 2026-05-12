@@ -3,6 +3,7 @@
 import { execFile as execFileCallback } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 
 const execFile = promisify(execFileCallback)
@@ -14,6 +15,8 @@ const OUTPUT_SQL = path.join(TMP_ROOT, 'policy-page-url-recovery.sql')
 const DEFAULT_CURL_TIMEOUT_SECONDS = '10'
 const MAX_BODY_BYTES = 900_000
 const DEFAULT_SEARCH_RESULT_LIMIT = 3
+const DEFAULT_SUPABASE_URL = 'https://twjaqynuamghrobhdasf.supabase.co'
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3amFxeW51YW1naHJvYmhkYXNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5NDc2NTcsImV4cCI6MjA5MDUyMzY1N30.zLhPdZE1jo1svRpK07c0iLrMA1_ObKz6M3yYeDS65Rw'
 
 const BAD_SOURCE_DOMAINS = [
   'carrotsandsticks.org',
@@ -74,16 +77,66 @@ const TITLE_DOMAIN_HINTS = [
   { match: /\bPSOJ\b|Private Sector Organisation of Jamaica/i, domains: ['psoj.org'] },
 ]
 
-const MANUAL_POLICY_PAGE_URLS = {
+export const MANUAL_POLICY_PAGE_URLS = {
   '000e34f0-756f-54c9-8e07-083687b1afa1': 'https://www.meti.go.jp/english/press/2022/0913_001.html',
   '0018d0c0-4c26-518d-8b65-29b6e763e7cc': 'https://www.psoj.org/corporate-gov/',
   '0023d4b6-d3da-5e01-8b3e-1c9d0c27f6ad': 'https://www.gpw.pl/best-practice2021',
   '0038ed47-37c6-53f5-ac37-43daf2dabc83': 'https://sasb.ifrs.org/standards/renewable-resources-alternative-energy-industry-briefs/',
   '00490b37-3fac-5dd0-82cd-32817c7f8f62': 'https://laws-lois.justice.gc.ca/eng/regulations/SOR-90-97/',
+  '04f7f21c-613c-56a2-8685-c9412ee35712': 'https://www.globalreporting.org/publications/documents/english/gri-201-economic-performance-2016/',
+  '0d6ebb88-6a6f-5337-a09d-0dd1d0f1fd69': 'https://www.globalreporting.org/standards/standards-development/sector-standard-for-agriculture-aquaculture-and-fishing-gri-13/',
+  '0b847ecd-7136-5d60-a919-4fba29c12732': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=TC-SC',
+  '08053049-6d09-516a-aa76-c92b0ceb2cc1': 'https://www.globalreporting.org/publications/documents/english/gri-403-occupational-health-and-safety-2018/',
+  '15a305f8-1d6e-589b-80f7-743c4d55856a': 'https://www.globalreporting.org/publications/documents/english/gri-409-forced-or-compulsory-labor-2016/',
+  '18edd955-5797-5e0f-8755-c67477612017': 'https://www.oecd.org/en/publications/g20-oecd-principles-of-corporate-governance-2023_ed750b30-en.html',
+  '4c149823-90ef-5bfd-8fc0-8f28704b5c01': 'https://www.globalreporting.org/publications/documents/english/gri-203-indirect-economic-impacts-2016/',
+  '6c44c4c1-c1bb-59be-8f30-f20ab5eca459': 'https://www.globalreporting.org/publications/documents/english/gri-415-public-policy-2016/',
+  '71a6aa99-75e0-57d5-9f46-ca6379d2e4e8': 'https://www.globalreporting.org/publications/documents/english/gri-302-energy-2016/',
+  '88ea243e-255c-5aaa-9b5e-61321aae8989': 'https://www.globalreporting.org/publications/documents/english/gri-417-marketing-and-labeling-2016/',
+  '93de3c3a-02c6-545c-86f4-5f29f6d7bd57': 'https://www.globalreporting.org/publications/documents/english/gri-402-labor-and-management-relations-2016/',
+  '98d9a437-8cd2-562b-93b2-06d653803085': 'https://www.ifrs.org/issued-standards/ifrs-sustainability-standards-navigator/ifrs-s1-general-requirements/',
   '00e16235-f0f5-58af-aed1-0019d823c430': 'https://brdr.hkma.gov.hk/eng/doc-ldg/docId/20230530-1-EN',
   '00e49101-aef5-5b72-b12c-45b5fbf7fb74': 'https://e-seimas.lrs.lt/portal/legalActEditions/lt/TAD/d4f29e12338d11efb121d2fe3a0eff27',
   '00fa6d8f-497b-5924-8565-31f824249e1b': 'https://www.globalreporting.org/standards/standards-development/review-of-the-universal-standards/',
+  '268b5471-7b68-5103-9d68-346ad8805b4a': 'https://www.ifrs.org/supporting-implementation/supporting-materials-for-ifrs-sustainability-disclosure-standards/ifrs-s1/',
   '01f6df13-31e9-5354-997b-f084d5495825': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=FN-IN',
+  '067cf337-7b10-504c-b5a7-c340141623de': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B1%5D=FN-AC',
+  '1c10fe2b-3186-5728-9930-66ead7ce5b7f': 'https://www.globalreporting.org/publications/documents/english/gri-303-water-and-effluents-2018/',
+  '1b7ac76b-62fa-54bb-bec4-a9bcaedfe441': 'https://www.oecd.org/en/publications/oecd-principles-of-corporate-governance-2004_9789264015999-en',
+  '14516a99-19fb-59ab-9f95-9c916e568eb9': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=RR-PP',
+  '24642b62-fd22-5a67-9f93-f8520508452d': 'https://www.globalreporting.org/publications/documents/english/gri-407-freedom-of-association-and-collective-bargaining-2016/',
+  '25d243d6-7c81-5f19-bf23-320ec2a74431': 'https://www.oecd.org/en/publications/oecd-due-diligence-guidance-for-responsible-business-conduct_15f5f4b3-en.html',
+  '33ed5b01-61c7-56de-82da-d7ffd4a264bd': 'https://www.ifrs.org/supporting-implementation/supporting-materials-for-ifrs-sustainability-disclosure-standards/ifrs-s2/',
+  '36ed8c6b-3902-5b16-9c3f-f23f19391ba8': 'https://www.globalreporting.org/publications/documents/english/gri-206-anti-competitive-behavior-2016/',
+  '3978aa48-c3eb-54ce-8cf5-24c0a33de4e0': 'https://www.globalreporting.org/publications/documents/english/gri-410-security-practices-2016/',
+  '40270afb-b240-50b9-a490-d99d1154fd0b': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=IF-HB',
+  '43a62ba7-dd50-57e4-9ebd-8a1c81867a11': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=FB-NB',
+  '4286c0d7-f065-58ad-8447-640b0b26a5d8': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=IF-EN',
+  '4776e6e3-bdca-5911-af1f-354fdf3d6047': 'https://www.globalreporting.org/standards/standards-development/sector-standard-for-mining/',
+  '5aeccd90-2bb9-5761-9ef5-a38e06b55024': 'https://www.ifrs.org/issued-standards/ifrs-sustainability-standards-navigator/ifrs-s2-climate-related-disclosures/',
+  '53918c75-3b9c-5290-be38-100a7501df89': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B1%5D=SV-AD',
+  '5b5fa413-5cd7-542f-9a87-e80cf9f1fe3f': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=HC-BP',
+  '7ab9fa3c-7881-5e7b-b326-91e9f534784e': 'https://www.globalreporting.org/publications/documents/english/gri-401-employment-2016/',
+  '1e7b1051-4b07-56f9-a044-026a2dafdcfa': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=TC-SI',
+  '7baa05a4-f712-553c-ad7c-206a87e077c8': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=TR-AP',
+  '30b22bac-7852-5f47-aba8-8cabad1a52da': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=TR-AU',
+  '3e197e1e-337c-5820-abf5-b6c007164673': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B1%5D=RR-FM',
+  'a9f48017-b62c-57c2-8aa5-47f8bcc955b5': 'https://www.globalreporting.org/publications/documents/english/gri-413-local-communities-2016/',
+  'bf8d5193-e765-5063-91b9-3346bc733e3c': 'https://www.globalreporting.org/publications/documents/english/gri-418-customer-privacy-2016/',
+  'd518ac7f-5fe7-5134-bfac-4c847ca8c977': 'https://www.globalreporting.org/publications/documents/english/gri-405-diversity-and-equal-opportunity-2016/',
+  'd5b50dab-9442-55b4-be0e-e24a8f8babe9': 'https://www.globalreporting.org/publications/documents/english/gri-411-rights-of-indigenous-peoples-2016/',
+  'df36d530-dea7-55bb-a552-af276b74987b': 'https://www.globalreporting.org/publications/documents/english/gri-408-child-labor-2016/',
+  'ed75164f-028e-5b34-975b-85fbc3e34daf': 'https://www.ifrs.org/sustainability/climate-disclosure-standards-board/',
+  'e7dc61a5-0f62-592d-aec0-32ba92afaa38': 'https://www.globalreporting.org/publications/documents/english/gri-301-materials-2016/',
+  'eef3e847-4e25-5b74-a56c-fc5da13e1543': 'https://www.globalreporting.org/publications/documents/english/gri-414-supplier-social-assessment-2016/',
+  'f60a4315-7b68-5775-83cb-e2954f867461': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=RT-IG',
+  'f6b8ee69-80c8-5a8f-adaa-aec1fa4555d6': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=RT-CH',
+  'f944d0b9-8602-50b2-b286-fc1f0d8e3804': 'https://www.ifrs.org/projects/completed-projects/2025/amendments-to-disclosure-of-greenhouse-gas-emissions-s2/ed-cl-amendments-greenhouse-gas-s2/',
+  'f8975ee4-c4b3-5d51-9d16-5635dfdb7d3b': 'https://www.globalreporting.org/publications/documents/english/gri-406-non-discrimination-2016/',
+  'f3066fd4-f996-5476-8b3e-57f364776fce': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=TR-AF',
+  '61da7a94-ec21-58c8-9069-05438a678267': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=CG-HP',
+  '2d474baa-1848-59e3-8b5d-598c7b8f9955': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=IF-WM',
+  '4e64adaa-1f18-52d9-baa5-d291f0303a76': 'https://sasb.ifrs.org/standards/materiality-finder/find/?industry%5B0%5D=SV-ME',
 }
 
 const STOPWORDS = new Set([
@@ -104,6 +157,15 @@ function getArg(name) {
 
 function hasFlag(name) {
   return process.argv.includes(name)
+}
+
+function buildMatchRegex(value) {
+  if (!value) return null
+  try {
+    return new RegExp(value, 'i')
+  } catch {
+    return new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+  }
 }
 
 function unique(values) {
@@ -458,10 +520,12 @@ function formatSql(accepted) {
 
 async function main() {
   const env = await loadEnv()
-  const baseUrl = env.VITE_SUPABASE_URL
-  const anonKey = env.VITE_SUPABASE_ANON_KEY
+  const baseUrl = env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL
+  const anonKey = env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY
   const limit = Number(getArg('--limit') || '0')
   const enableSearch = hasFlag('--search')
+  const regionFilter = getArg('--region')
+  const matchRegex = buildMatchRegex(getArg('--match'))
 
   const [regulations, documents] = await Promise.all([
     fetchJsonPages(baseUrl, anonKey, 'regulations', 'id,title,formal_title,region,source_name,source_url,official_source_url,policy_page_url,tags'),
@@ -476,7 +540,23 @@ async function main() {
   }
 
   const recoverable = regulations.filter((regulation) => !regulation.policy_page_url)
-  const targetRegulations = limit > 0 ? recoverable.slice(0, limit) : recoverable
+  const filteredRecoverable = recoverable.filter((regulation) => {
+    if (regionFilter && regulation.region !== regionFilter) return false
+    if (!matchRegex) return true
+
+    const haystack = [
+      regulation.title,
+      regulation.formal_title,
+      regulation.source_name,
+      regulation.region,
+      ...(Array.isArray(regulation.tags) ? regulation.tags : []),
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    return matchRegex.test(haystack)
+  })
+  const targetRegulations = limit > 0 ? filteredRecoverable.slice(0, limit) : filteredRecoverable
   const accepted = []
   const unresolved = []
 
@@ -570,6 +650,7 @@ async function main() {
     generated_at: new Date().toISOString(),
     total_regulations: regulations.length,
     recoverable_missing: recoverable.length,
+    filtered_recoverable_missing: filteredRecoverable.length,
     processed: targetRegulations.length,
     accepted_count: accepted.length,
     unresolved_count: unresolved.length,
@@ -585,6 +666,7 @@ async function main() {
     output_sql: OUTPUT_SQL,
     search_enabled: enableSearch,
     recoverable_missing: recoverable.length,
+    filtered_recoverable_missing: filteredRecoverable.length,
     processed: targetRegulations.length,
     accepted_count: accepted.length,
     unresolved_count: unresolved.length,
@@ -593,7 +675,11 @@ async function main() {
   }, null, 2))
 }
 
-main().catch((error) => {
-  console.error(error)
-  process.exit(1)
-})
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error(error)
+    process.exit(1)
+  })
+}

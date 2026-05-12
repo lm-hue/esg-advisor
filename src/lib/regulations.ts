@@ -3552,6 +3552,40 @@ function sortByDateDesc(a: RegulationRecord, b: RegulationRecord) {
   return new Date(getRegulationDateValue(b)).getTime() - new Date(getRegulationDateValue(a)).getTime()
 }
 
+function buildRegulationIdentityKey(value?: string | null) {
+  return (value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function collectRegulationIdentityKeys(regulation: Pick<RegulationRecord, 'title' | 'formal_title'>) {
+  return [buildRegulationIdentityKey(regulation.title), buildRegulationIdentityKey(regulation.formal_title)].filter(Boolean)
+}
+
+async function findCanonicalDatabaseRegulationMatch(supplemental: RegulationRecord) {
+  const exactCandidates = [
+    ['title', supplemental.title],
+    ['formal_title', supplemental.title],
+    ['title', supplemental.formal_title],
+    ['formal_title', supplemental.formal_title],
+  ] as const
+
+  for (const [field, value] of exactCandidates) {
+    if (!value) continue
+    const { data, error } = await supabase.from('regulations').select('*').eq(field, value).limit(1).maybeSingle()
+    if (error) {
+      console.error('Error resolving canonical regulation match:', error)
+      continue
+    }
+    if (data) return normalizeRegulationRecord(data as RegulationRecord)
+  }
+
+  return null
+}
+
 export function getSupplementalRegulations() {
   return [...SUPPLEMENTAL_REGULATIONS].map(normalizeRegulationRecord).sort(sortByDateDesc)
 }
@@ -3582,7 +3616,11 @@ export async function fetchAllRegulations() {
 
   // Merge supplemental records (slug-based IDs, never collide with DB UUIDs)
   const dbIds = new Set(all.map((r) => r.id))
-  const supplemental = getSupplementalRegulations().filter((r) => !dbIds.has(r.id))
+  const dbIdentityKeys = new Set(all.flatMap((regulation) => collectRegulationIdentityKeys(regulation)))
+  const supplemental = getSupplementalRegulations().filter((regulation) => {
+    if (dbIds.has(regulation.id)) return false
+    return !collectRegulationIdentityKeys(regulation).some((key) => dbIdentityKeys.has(key))
+  })
   return [...all, ...supplemental].sort(sortByDateDesc)
 }
 
@@ -3595,7 +3633,11 @@ export async function fetchRegulationById(id: string) {
 
   if (data) return normalizeRegulationRecord(data as RegulationRecord)
 
-  return getSupplementalRegulations().find((regulation) => regulation.id === id) || null
+  const supplemental = getSupplementalRegulations().find((regulation) => regulation.id === id) || null
+  if (!supplemental) return null
+
+  const canonicalMatch = await findCanonicalDatabaseRegulationMatch(supplemental)
+  return canonicalMatch || supplemental
 }
 
 export async function fetchRegulationSourceDocuments(regulationId: string) {
