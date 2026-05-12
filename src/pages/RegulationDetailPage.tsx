@@ -2,7 +2,7 @@ import { KeyboardEvent, useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { withAuthModal } from '../lib/authModal'
 import BookmarkHint from '../components/BookmarkHint'
-import { fetchRegulationById, fetchRegulationSourceDocuments, fetchRelatedRegulations } from '../lib/regulations'
+import { fetchRegulationById, fetchRegulationSourceDocumentsByIds, fetchRelatedRegulations } from '../lib/regulations'
 import { getUserWatchlist, saveUserWatchlist } from '../lib/userSettings'
 import { Regulation, RegulationSourceDocument } from '../types'
 import { ArrowLeft, ArrowUp, ExternalLink, FileText, GitBranch, Globe, Star } from 'lucide-react'
@@ -82,12 +82,17 @@ function getSourceDocumentDisplayHref(document: RegulationSourceDocument) {
   return sanitizeUrl(document.document_url || document.official_source_url)
 }
 
+function getSupabasePdfDocument(documents: RegulationSourceDocument[]) {
+  return documents.find((document) => document.document_type === 'pdf' && !!sanitizeUrl(document.archived_public_url))
+}
+
 export default function RegulationDetailPage({ user }: RegulationDetailPageProps) {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
   const [regulation, setRegulation] = useState<Regulation | null>(null)
   const [sourceDocuments, setSourceDocuments] = useState<RegulationSourceDocument[]>([])
+  const [sourceDocumentsByRegulationId, setSourceDocumentsByRegulationId] = useState<Map<string, RegulationSourceDocument[]>>(new Map())
   const [familyChildren, setFamilyChildren] = useState<Regulation[]>([])
   const [umbrellaParent, setUmbrellaParent] = useState<Regulation | null>(null)
   const [loading, setLoading] = useState(true)
@@ -125,22 +130,39 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
     try {
       const data = await fetchRegulationById(id)
       setRegulation(data)
-      if (id) {
-        const documents = await fetchRegulationSourceDocuments(id)
-        setSourceDocuments(documents)
-      }
       if (data) {
+        let parent: Regulation | null = null
+        let children: Regulation[] = []
+
         if (data.umbrella_id) {
-          const [parent, siblings] = await Promise.all([
+          const [fetchedParent, siblings] = await Promise.all([
             fetchRegulationById(data.umbrella_id),
             fetchRelatedRegulations(data.umbrella_id),
           ])
+          parent = fetchedParent
+          children = siblings
           setUmbrellaParent(parent)
-          setFamilyChildren(siblings)
+          setFamilyChildren(children)
         } else {
-          const children = await fetchRelatedRegulations(data.id)
+          children = await fetchRelatedRegulations(data.id)
+          setUmbrellaParent(null)
           setFamilyChildren(children)
         }
+
+        const regulationIdsForDocuments = [
+          data.id,
+          ...(parent ? [parent.id] : []),
+          ...children.map((child) => child.id),
+        ]
+
+        const documentsByRegulationId = await fetchRegulationSourceDocumentsByIds(regulationIdsForDocuments)
+        setSourceDocumentsByRegulationId(documentsByRegulationId)
+        setSourceDocuments(documentsByRegulationId.get(data.id) || [])
+      } else {
+        setSourceDocuments([])
+        setSourceDocumentsByRegulationId(new Map())
+        setUmbrellaParent(null)
+        setFamilyChildren([])
       }
     } catch (error) {
       console.error('Error fetching regulation:', error)
@@ -229,6 +251,9 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
   const policySourceUrl = getPolicySourceHref(regulation, sourceDocuments)
   const showOfficialWebsiteButton = !!officialWebsiteUrl
   const showPolicySourceButton = !!policySourceUrl && policySourceUrl !== officialWebsiteUrl
+  const umbrellaParentPdfDocument = umbrellaParent
+    ? getSupabasePdfDocument(sourceDocumentsByRegulationId.get(umbrellaParent.id) || [])
+    : null
 
   const handleSourceDocumentCardKeyDown = (event: KeyboardEvent<HTMLDivElement>, documentId: string) => {
     if (event.key !== 'Enter' && event.key !== ' ') return
@@ -240,6 +265,12 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
         regulationBackLabel: backLabel,
       },
     })
+  }
+
+  const handleNavigateCardKeyDown = (event: KeyboardEvent<HTMLDivElement>, href: string, backLabelText: string) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    navigate(href, { state: { backLabel: backLabelText } })
   }
 
   const openExternalDocument = (event: React.MouseEvent<HTMLButtonElement>, href: string) => {
@@ -415,41 +446,72 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
               <GitBranch size={15} className="text-[hsl(var(--muted-foreground))]" />
               Family
             </h3>
-            <div className="mb-4 flex items-center gap-2 rounded-xl bg-[hsl(var(--muted))] px-4 py-3">
-              <span className="text-xs text-[hsl(var(--muted-foreground))]">Part of</span>
-              {umbrellaParent ? (
-                <button
-                  onClick={() => navigate(`/framework-library/${umbrellaParent.id}`, { state: { backLabel: regulation.title } })}
-                  className="text-sm font-semibold text-[hsl(var(--primary))] hover:underline"
-                >
-                  {umbrellaParent.title}
-                </button>
-              ) : (
-                <span className="text-sm font-semibold text-[hsl(var(--foreground))]">this family</span>
-              )}
-              {regulation.version_label && (
-                <span className="ml-auto rounded-full bg-[hsl(var(--primary)/0.1)] px-2.5 py-0.5 text-xs font-medium text-[hsl(var(--primary))]">
-                  {regulation.version_label}
-                </span>
-              )}
+            <div className="mb-4 flex flex-col gap-3 rounded-xl bg-[hsl(var(--muted))] px-4 py-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[hsl(var(--muted-foreground))]">Part of</span>
+                {umbrellaParent ? (
+                  <button
+                    onClick={() => navigate(`/framework-library/${umbrellaParent.id}`, { state: { backLabel: regulation.title } })}
+                    className="text-sm font-semibold text-[hsl(var(--primary))] hover:underline"
+                  >
+                    {umbrellaParent.title}
+                  </button>
+                ) : (
+                  <span className="text-sm font-semibold text-[hsl(var(--foreground))]">this family</span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {umbrellaParentPdfDocument && (
+                  <button
+                    type="button"
+                    onClick={(event) => openExternalDocument(event, sanitizeUrl(umbrellaParentPdfDocument.archived_public_url))}
+                    className="ui-button-secondary"
+                  >
+                    <FileText size={16} />
+                    Open PDF
+                  </button>
+                )}
+                {regulation.version_label && (
+                  <span className="rounded-full bg-[hsl(var(--primary)/0.1)] px-2.5 py-0.5 text-xs font-medium text-[hsl(var(--primary))]">
+                    {regulation.version_label}
+                  </span>
+                )}
+              </div>
             </div>
-            {familyChildren.filter((c) => c.id !== id).length > 0 && (
+            {familyChildren.filter((c) => c.id !== regulation.id).length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">Also in this family</p>
-                {familyChildren.filter((c) => c.id !== id).map((sibling) => (
-                  <button
-                    key={sibling.id}
-                    onClick={() => navigate(`/framework-library/${sibling.id}`, { state: { backLabel: umbrellaParent?.title ?? 'Family' } })}
-                    className="flex w-full items-center gap-3 rounded-xl bg-[hsl(var(--muted))] px-4 py-3 text-left hover:bg-[hsl(var(--muted)/0.7)] transition-colors"
-                  >
-                    <span className="flex-1 text-sm font-medium text-[hsl(var(--foreground))]">{sibling.title}</span>
-                    {sibling.version_label && (
-                      <span className="shrink-0 rounded-full bg-[hsl(var(--background))] px-2.5 py-0.5 text-xs text-[hsl(var(--muted-foreground))]">
-                        {sibling.version_label}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {familyChildren.filter((c) => c.id !== regulation.id).map((sibling) => {
+                  const siblingPdfDocument = getSupabasePdfDocument(sourceDocumentsByRegulationId.get(sibling.id) || [])
+
+                  return (
+                    <div
+                      key={sibling.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(`/framework-library/${sibling.id}`, { state: { backLabel: umbrellaParent?.title ?? 'Family' } })}
+                      onKeyDown={(event) => handleNavigateCardKeyDown(event, `/framework-library/${sibling.id}`, umbrellaParent?.title ?? 'Family')}
+                      className="flex w-full items-center gap-3 rounded-xl bg-[hsl(var(--muted))] px-4 py-3 text-left hover:bg-[hsl(var(--muted)/0.7)] transition-colors"
+                    >
+                      <span className="flex-1 text-sm font-medium text-[hsl(var(--foreground))]">{sibling.title}</span>
+                      {siblingPdfDocument && (
+                        <button
+                          type="button"
+                          onClick={(event) => openExternalDocument(event, sanitizeUrl(siblingPdfDocument.archived_public_url))}
+                          className="ui-button-secondary shrink-0"
+                        >
+                          <FileText size={16} />
+                          Open PDF
+                        </button>
+                      )}
+                      {sibling.version_label && (
+                        <span className="shrink-0 rounded-full bg-[hsl(var(--background))] px-2.5 py-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+                          {sibling.version_label}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -467,18 +529,32 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
             </h3>
             <div className="space-y-2">
               {familyChildren.map((child) => {
+                const childPdfDocument = getSupabasePdfDocument(sourceDocumentsByRegulationId.get(child.id) || [])
                 const relationLabel = child.umbrella_relation === 'part_of' ? 'Part of'
                   : child.umbrella_relation === 'component' ? 'Component'
                   : child.umbrella_relation === 'version' ? 'Version'
                   : child.umbrella_relation === 'amendment' ? 'Amendment'
                   : ''
                 return (
-                  <button
+                  <div
                     key={child.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigate(`/framework-library/${child.id}`, { state: { backLabel: regulation?.title } })}
+                    onKeyDown={(event) => handleNavigateCardKeyDown(event, `/framework-library/${child.id}`, regulation?.title || 'Back')}
                     className="flex w-full items-center gap-3 rounded-xl bg-[hsl(var(--muted))] px-4 py-3 text-left hover:bg-[hsl(var(--muted)/0.7)] transition-colors"
                   >
                     <span className="flex-1 text-sm font-medium text-[hsl(var(--foreground))]">{child.title}</span>
+                    {childPdfDocument && (
+                      <button
+                        type="button"
+                        onClick={(event) => openExternalDocument(event, sanitizeUrl(childPdfDocument.archived_public_url))}
+                        className="ui-button-secondary shrink-0"
+                      >
+                        <FileText size={16} />
+                        Open PDF
+                      </button>
+                    )}
                     {child.version_label && (
                       <span className="shrink-0 rounded-full bg-[hsl(var(--background))] px-2.5 py-0.5 text-xs text-[hsl(var(--muted-foreground))]">
                         {child.version_label}
@@ -487,7 +563,7 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
                     {relationLabel && (
                       <span className="shrink-0 text-xs text-[hsl(var(--muted-foreground))]">{relationLabel}</span>
                     )}
-                  </button>
+                  </div>
                 )
               })}
             </div>

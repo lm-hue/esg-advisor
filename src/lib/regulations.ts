@@ -3663,6 +3663,42 @@ export async function fetchRegulationSourceDocuments(regulationId: string) {
   })
 }
 
+export async function fetchRegulationSourceDocumentsByIds(regulationIds: string[]) {
+  const uniqueIds = [...new Set(regulationIds.filter(Boolean))]
+  if (uniqueIds.length === 0) return new Map<string, RegulationSourceDocument[]>()
+
+  const { data, error } = await supabase
+    .from('regulation_source_documents')
+    .select('*')
+    .in('regulation_id', uniqueIds)
+    .order('version_label', { ascending: false })
+    .order('document_type', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching regulation source documents by ids:', error)
+    return new Map<string, RegulationSourceDocument[]>()
+  }
+
+  const documentsByRegulationId = new Map<string, RegulationSourceDocument[]>()
+  for (const document of ((data || []) as RegulationSourceDocument[]).map(normalizeSourceDocumentRecord)) {
+    const candidateUrl = `${document.document_url || ''} ${document.archived_public_url || ''}`.toLowerCase()
+
+    const keep =
+      document.document_type === 'html' ||
+      document.document_type === 'pdf' ||
+      candidateUrl.includes('.pdf') ||
+      !!document.document_url
+
+    if (!keep) continue
+
+    const list = documentsByRegulationId.get(document.regulation_id) || []
+    list.push(document)
+    documentsByRegulationId.set(document.regulation_id, list)
+  }
+
+  return documentsByRegulationId
+}
+
 export async function fetchRegulationSourceDocumentById(documentId: string) {
   const { data, error } = await supabase
     .from('regulation_source_documents')
@@ -3705,8 +3741,12 @@ export async function fetchRelatedRegulations(umbrellaId: string): Promise<Regul
 
   // Always merge supplemental children (handles slug-based umbrella_id families)
   const dbIds = new Set(dbResults.map((r) => r.id))
+  const dbIdentityKeys = new Set(dbResults.flatMap((regulation) => collectRegulationIdentityKeys(regulation)))
   const supplementalChildren = getSupplementalRegulations().filter(
-    (r) => r.umbrella_id === umbrellaId && !dbIds.has(r.id)
+    (r) =>
+      r.umbrella_id === umbrellaId &&
+      !dbIds.has(r.id) &&
+      !collectRegulationIdentityKeys(r).some((key) => dbIdentityKeys.has(key))
   )
 
   return [...dbResults, ...supplementalChildren].sort((a, b) =>
