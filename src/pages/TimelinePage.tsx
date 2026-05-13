@@ -15,7 +15,9 @@ import {
 } from 'lucide-react'
 import { withAuthModal } from '../lib/authModal'
 import BookmarkHint from '../components/BookmarkHint'
+import { openExternalInNewTabOnly } from '../lib/openExternal'
 import { fetchAllRegulations } from '../lib/regulations'
+import { getRegulationSourceLinks } from '../lib/regulationSourceLinks'
 import { getUserWatchlist, saveUserWatchlist } from '../lib/userSettings'
 import { Regulation } from '../types'
 import {
@@ -878,15 +880,14 @@ function TimelineList({
 
                     <div className="mb-1 flex items-center gap-1 text-[11px] text-[hsl(var(--muted-foreground))]">
                       <span className="font-medium">{getSourceLabel(regulation)}</span>
-                      {regulation.official_source_url && (
-                        <a
-                          href={regulation.official_source_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                      {getRegulationSourceLinks(regulation).primaryExternalUrl && (
+                        <button
+                          type="button"
+                          onClick={() => openExternalInNewTabOnly(getRegulationSourceLinks(regulation).primaryExternalUrl)}
                           className="transition-colors hover:text-[hsl(var(--primary))]"
                         >
                           <Plus size={12} className="rotate-45" />
-                        </a>
+                        </button>
                       )}
                     </div>
 

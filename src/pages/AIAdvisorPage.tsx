@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ExternalLink, Send, Bot, User, Trash2, X, PanelRightOpen, Quote } from 'lucide-react'
 import { AIAdvisorCitation, AIAdvisorExcerptTarget, AIAdvisorSource, invokeAIAdvisor } from '../lib/aiAdvisor'
+import { openExternalInNewTabOnly } from '../lib/openExternal'
 import {
   fetchAllRegulations,
   fetchRegulationSourceChunk,
   fetchRegulationSourceDocumentById,
   RegulationRecord,
 } from '../lib/regulations'
+import { getRegulationSourceLinks } from '../lib/regulationSourceLinks'
 import { RegulationSourceChunk, RegulationSourceDocument } from '../types'
 import { getStatusWeight, isRegulationCurrentlyEffective, normalizeStatus } from '../lib/appTheme'
 
@@ -138,15 +140,14 @@ function renderInlineFormatting(
     const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
     if (linkMatch) {
       return (
-        <a
+        <button
+          type="button"
           key={`${index}-${linkMatch[2]}`}
-          href={linkMatch[2]}
-          target="_blank"
-          rel="noopener noreferrer"
+          onClick={() => openExternalInNewTabOnly(linkMatch[2])}
           className="font-medium text-[hsl(var(--primary))] underline underline-offset-2"
         >
           {linkMatch[1]}
-        </a>
+        </button>
       )
     }
 
@@ -372,15 +373,19 @@ function rankRegulationsForResearch(regulations: RegulationRecord[]) {
 
 function toResearchSources(regulations: RegulationRecord[], limit = 8): AIAdvisorSource[] {
   const unique = rankRegulationsForResearch(regulations).filter(
-    (regulation, index, array) => !!regulation.official_source_url && array.findIndex((candidate) => candidate.id === regulation.id) === index
+    (regulation, index, array) => !!getRegulationSourceLinks(regulation).primaryExternalUrl && array.findIndex((candidate) => candidate.id === regulation.id) === index
   )
 
-  return unique.slice(0, limit).map((regulation) => ({
+  return unique.slice(0, limit).map((regulation) => {
+    const { primaryExternalUrl } = getRegulationSourceLinks(regulation)
+
+    return {
     regulationId: regulation.id,
     title: regulation.title,
     sourceName: regulation.source_name,
-    sourceUrl: regulation.official_source_url || '',
-  }))
+    sourceUrl: primaryExternalUrl,
+    }
+  })
 }
 
 export default function AIAdvisorPage({ user }: AIAdvisorPageProps) {
@@ -756,11 +761,10 @@ export default function AIAdvisorPage({ user }: AIAdvisorPageProps) {
                         }
 
                         return (
-                          <a
+                          <button
+                            type="button"
                             key={`${message.timestamp}-${citation.label}-${citation.sourceUrl}`}
-                            href={citation.archivedPublicUrl || citation.documentUrl || citation.sourceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            onClick={() => openExternalInNewTabOnly(citation.archivedPublicUrl || citation.documentUrl || citation.sourceUrl)}
                             className="flex items-start justify-between gap-3 rounded-xl border border-[hsl(var(--border))] bg-white px-3 py-2 text-left text-[hsl(var(--foreground))] transition hover:border-[hsl(var(--primary)/0.4)]"
                           >
                             <span>
@@ -774,7 +778,7 @@ export default function AIAdvisorPage({ user }: AIAdvisorPageProps) {
                               </span>
                             </span>
                             <ExternalLink size={14} className="mt-0.5 shrink-0 text-[hsl(var(--muted-foreground))]" />
-                          </a>
+                          </button>
                         )
                       })}
                     </div>
@@ -873,15 +877,14 @@ export default function AIAdvisorPage({ user }: AIAdvisorPageProps) {
                 <Link to={buildExcerptHref(citationContext.target)} className="ui-button-ghost inline-flex items-center gap-2">
                   Open Full Source
                 </Link>
-                <a
-                  href={buildDocumentLink(citationContext.document, citationContext.target)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => openExternalInNewTabOnly(buildDocumentLink(citationContext.document, citationContext.target))}
                   className="ui-button-ghost inline-flex items-center gap-2"
                 >
                   {citationContext.document?.document_type === 'pdf' ? 'Open PDF' : 'Open Link'}
                   <ExternalLink size={14} />
-                </a>
+                </button>
               </div>
             </>
           )}

@@ -1,28 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRightLeft, ArrowUpRight, BarChart3, ChevronDown, Globe2, Scale, Sparkles, X } from 'lucide-react'
+import { openExternalInNewTabOnly } from '../lib/openExternal'
 import { fetchAllRegulations, fetchRegulationById } from '../lib/regulations'
+import { getRegulationSourceLinks } from '../lib/regulationSourceLinks'
 import { Regulation } from '../types'
 import { CATEGORY_BADGES, CATEGORY_DOTS, STATUS_BADGES, TOPIC_BADGES, formatCategoryLabel, formatDateWithPrecision, formatRegulationTypeLabel, formatStatusLabel, formatTopicLabel, getRegulationTypeKey, isRegulationCurrentlyEffective, normalizeCategoryKey } from '../lib/appTheme'
 import { REGION_EMOJIS, formatGeographyOptionLabel, getGeographyOption } from '../lib/geography'
 
 function getRegulationDate(regulation: Regulation) {
   return regulation.effective_date || regulation.updated_at || regulation.created_at
-}
-
-function getSourceActionLabel(kind?: Regulation['source_link_kind'] | null) {
-  switch (kind) {
-    case 'official':
-      return 'View Official Source'
-    case 'archived_pdf':
-      return 'Open Archived PDF'
-    case 'reference_pdf':
-      return 'Open Source PDF'
-    case 'reference_page':
-      return 'Open Source Page'
-    default:
-      return 'Open Source'
-  }
 }
 
 function getThemeCounts(regulations: Regulation[]) {
@@ -623,17 +610,44 @@ export default function CompareRegionsPage() {
 
                   {/* Footer actions */}
                   <div className="mt-6 flex flex-wrap gap-2 border-t border-[hsl(var(--border))] pt-5">
-                    {drawerRegulation.official_source_url && (
-                      <a
-                        href={drawerRegulation.official_source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                    {(() => {
+                      const { officialWebsiteUrl, officialSourcePdfUrl, policyPageUrl } = getRegulationSourceLinks(drawerRegulation)
+
+                      return (
+                        <>
+                    {officialWebsiteUrl && (
+                      <button
+                        type="button"
+                        onClick={() => openExternalInNewTabOnly(officialWebsiteUrl)}
                         className="ui-button-ghost"
                       >
                         <ArrowUpRight size={14} />
-                        {getSourceActionLabel(drawerRegulation.source_link_kind)}
-                      </a>
+                        Official Website
+                      </button>
                     )}
+                    {officialSourcePdfUrl && (
+                      <button
+                        type="button"
+                        onClick={() => openExternalInNewTabOnly(officialSourcePdfUrl)}
+                        className="ui-button-ghost"
+                      >
+                        <ArrowUpRight size={14} />
+                        Official Source PDF
+                      </button>
+                    )}
+                    {policyPageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => openExternalInNewTabOnly(policyPageUrl)}
+                        className="ui-button-ghost"
+                      >
+                        <ArrowUpRight size={14} />
+                        Link to Policy
+                      </button>
+                    )}
+                        </>
+                      )
+                    })()}
                     <button
                       type="button"
                       onClick={() => navigate(`/regulations/${drawerRegulation.id}`)}

@@ -2,7 +2,14 @@ import { KeyboardEvent, useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { withAuthModal } from '../lib/authModal'
 import BookmarkHint from '../components/BookmarkHint'
+import { openExternalInNewTabOnly } from '../lib/openExternal'
 import { fetchRegulationById, fetchRegulationSourceDocumentsByIds, fetchRelatedRegulations } from '../lib/regulations'
+import {
+  getRegulationSourceLinks,
+  getSourceDocumentDisplayHref,
+  getSupabasePdfDocument,
+  sanitizeRegulationSourceUrl,
+} from '../lib/regulationSourceLinks'
 import { getUserWatchlist, saveUserWatchlist } from '../lib/userSettings'
 import { Regulation, RegulationSourceDocument } from '../types'
 import { ArrowLeft, ArrowUp, ExternalLink, FileText, GitBranch, Globe, Star } from 'lucide-react'
@@ -28,62 +35,6 @@ import { REGION_EMOJIS } from '../lib/geography'
 
 interface RegulationDetailPageProps {
   user: any
-}
-
-const ARCHIVED_SOURCE_PREFIX = 'https://twjaqynuamghrobhdasf.supabase.co/storage/v1/object/public/regulation-source-archives/'
-
-function isCarrotsSourceUrl(url?: string | null) {
-  return (url || '').trim().toLowerCase().includes('carrotsandsticks.org')
-}
-
-function isArchivedSourceUrl(url?: string | null) {
-  return (url || '').trim().toLowerCase().startsWith(ARCHIVED_SOURCE_PREFIX.toLowerCase())
-}
-
-function sanitizeUrl(url?: string | null) {
-  const normalized = (url || '').trim()
-  if (!normalized) return ''
-  if (isCarrotsSourceUrl(normalized)) return ''
-  return normalized
-}
-
-function looksLikePdfUrl(url?: string | null) {
-  const normalized = (url || '').trim().toLowerCase()
-  return normalized.includes('/api/download-pdf') || normalized.endsWith('.pdf')
-}
-
-function getOfficialWebsiteHref(regulation: Regulation, sourceDocuments: RegulationSourceDocument[]) {
-  const candidates = [
-    regulation.official_source_url,
-    ...sourceDocuments.map((document) => document.official_source_url),
-  ]
-    .map((url) => sanitizeUrl(url))
-    .filter((url) => !!url && !isArchivedSourceUrl(url))
-
-  return candidates.find((url) => !looksLikePdfUrl(url)) || ''
-}
-
-function getPolicySourceHref(
-  regulation: Regulation,
-  sourceDocuments: RegulationSourceDocument[],
-) {
-  const candidates = [
-    regulation.policy_page_url,
-    ...sourceDocuments.map((document) => document.policy_page_url),
-  ]
-    .map((url) => sanitizeUrl(url))
-    .filter((url) => !!url && !isArchivedSourceUrl(url) && !looksLikePdfUrl(url))
-
-  return candidates.find((url, index) => candidates.indexOf(url) === index) || ''
-}
-
-function getSourceDocumentDisplayHref(document: RegulationSourceDocument) {
-  if (document.document_type === 'pdf') return sanitizeUrl(document.archived_public_url)
-  return sanitizeUrl(document.document_url || document.official_source_url)
-}
-
-function getSupabasePdfDocument(documents: RegulationSourceDocument[]) {
-  return documents.find((document) => document.document_type === 'pdf' && !!sanitizeUrl(document.archived_public_url))
 }
 
 export default function RegulationDetailPage({ user }: RegulationDetailPageProps) {
@@ -247,13 +198,75 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
     )
   }
 
-  const officialWebsiteUrl = getOfficialWebsiteHref(regulation, sourceDocuments)
-  const policySourceUrl = getPolicySourceHref(regulation, sourceDocuments)
+  const { officialWebsiteUrl, officialSourcePdfUrl, policyPageUrl } = getRegulationSourceLinks(regulation, sourceDocuments)
   const showOfficialWebsiteButton = !!officialWebsiteUrl
-  const showPolicySourceButton = !!policySourceUrl && policySourceUrl !== officialWebsiteUrl
-  const umbrellaParentPdfDocument = umbrellaParent
-    ? getSupabasePdfDocument(sourceDocumentsByRegulationId.get(umbrellaParent.id) || [])
+  const showOfficialSourcePdfButton = !!officialSourcePdfUrl && officialSourcePdfUrl !== policyPageUrl
+  const showPolicySourceButton = !!policyPageUrl
+  const umbrellaParentSourceLinks = umbrellaParent
+    ? getRegulationSourceLinks(umbrellaParent, sourceDocumentsByRegulationId.get(umbrellaParent.id) || [])
     : null
+
+  const renderFamilySourceActions = (
+    targetRegulation: Regulation,
+    options?: {
+      compact?: boolean
+      showArchivedPdf?: boolean
+    },
+  ) => {
+    const documents = sourceDocumentsByRegulationId.get(targetRegulation.id) || []
+    const { officialWebsiteUrl, officialSourcePdfUrl, policyPageUrl } = getRegulationSourceLinks(targetRegulation, documents)
+    const archivedPdfDocument = options?.showArchivedPdf === false ? null : getSupabasePdfDocument(documents)
+    const buttonClass = options?.compact ? 'ui-button-secondary shrink-0' : 'ui-button-secondary'
+
+    if (!officialWebsiteUrl && !officialSourcePdfUrl && !policyPageUrl && !archivedPdfDocument) {
+      return null
+    }
+
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {officialWebsiteUrl && (
+          <button
+            type="button"
+            onClick={(event) => openExternalDocument(event, officialWebsiteUrl)}
+            className={buttonClass}
+          >
+            <ExternalLink size={16} />
+            Official Website
+          </button>
+        )}
+        {officialSourcePdfUrl && officialSourcePdfUrl !== policyPageUrl && (
+          <button
+            type="button"
+            onClick={(event) => openExternalDocument(event, officialSourcePdfUrl)}
+            className={buttonClass}
+          >
+            <FileText size={16} />
+            Official Source PDF
+          </button>
+        )}
+        {policyPageUrl && (
+          <button
+            type="button"
+            onClick={(event) => openExternalDocument(event, policyPageUrl)}
+            className={buttonClass}
+          >
+            <ExternalLink size={16} />
+            Link to Policy
+          </button>
+        )}
+        {archivedPdfDocument && (
+          <button
+            type="button"
+            onClick={(event) => openExternalDocument(event, sanitizeRegulationSourceUrl(archivedPdfDocument.archived_public_url))}
+            className={buttonClass}
+          >
+            <FileText size={16} />
+            Open PDF
+          </button>
+        )}
+      </div>
+    )
+  }
 
   const handleSourceDocumentCardKeyDown = (event: KeyboardEvent<HTMLDivElement>, documentId: string) => {
     if (event.key !== 'Enter' && event.key !== ' ') return
@@ -274,11 +287,9 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
   }
 
   const openExternalDocument = (event: React.MouseEvent<HTMLButtonElement>, href: string) => {
+    event.preventDefault()
     event.stopPropagation()
-    const opened = window.open(href, '_blank', 'noopener,noreferrer')
-    if (!opened) {
-      window.location.assign(href)
-    }
+    openExternalInNewTabOnly(href)
   }
 
   return (
@@ -407,26 +418,34 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
 
         <div className="mb-8 flex flex-wrap gap-3">
           {showOfficialWebsiteButton && (
-            <a
-              href={officialWebsiteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => openExternalInNewTabOnly(officialWebsiteUrl)}
               className="ui-button-secondary"
             >
               <ExternalLink size={16} />
               Official Website
-            </a>
+            </button>
+          )}
+          {showOfficialSourcePdfButton && (
+            <button
+              type="button"
+              onClick={() => openExternalInNewTabOnly(officialSourcePdfUrl)}
+              className="ui-button-secondary"
+            >
+              <FileText size={16} />
+              Official Source PDF
+            </button>
           )}
           {showPolicySourceButton && (
-            <a
-              href={policySourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => openExternalInNewTabOnly(policyPageUrl)}
               className="ui-button-secondary"
             >
               <ExternalLink size={16} />
               Link to Policy
-            </a>
+            </button>
           )}
           <BookmarkHint showHint={!user}>
             <button
@@ -461,16 +480,7 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {umbrellaParentPdfDocument && (
-                  <button
-                    type="button"
-                    onClick={(event) => openExternalDocument(event, sanitizeUrl(umbrellaParentPdfDocument.archived_public_url))}
-                    className="ui-button-secondary"
-                  >
-                    <FileText size={16} />
-                    Open PDF
-                  </button>
-                )}
+                {umbrellaParent && umbrellaParentSourceLinks && renderFamilySourceActions(umbrellaParent)}
                 {regulation.version_label && (
                   <span className="rounded-full bg-[hsl(var(--primary)/0.1)] px-2.5 py-0.5 text-xs font-medium text-[hsl(var(--primary))]">
                     {regulation.version_label}
@@ -482,8 +492,6 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
               <div className="space-y-2">
                 <p className="text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">Also in this family</p>
                 {familyChildren.filter((c) => c.id !== regulation.id).map((sibling) => {
-                  const siblingPdfDocument = getSupabasePdfDocument(sourceDocumentsByRegulationId.get(sibling.id) || [])
-
                   return (
                     <div
                       key={sibling.id}
@@ -491,24 +499,17 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
                       tabIndex={0}
                       onClick={() => navigate(`/framework-library/${sibling.id}`, { state: { backLabel: umbrellaParent?.title ?? 'Family' } })}
                       onKeyDown={(event) => handleNavigateCardKeyDown(event, `/framework-library/${sibling.id}`, umbrellaParent?.title ?? 'Family')}
-                      className="flex w-full items-center gap-3 rounded-xl bg-[hsl(var(--muted))] px-4 py-3 text-left hover:bg-[hsl(var(--muted)/0.7)] transition-colors"
+                      className="flex w-full flex-col gap-3 rounded-xl bg-[hsl(var(--muted))] px-4 py-3 text-left transition-colors hover:bg-[hsl(var(--muted)/0.7)] md:flex-row md:items-center"
                     >
                       <span className="flex-1 text-sm font-medium text-[hsl(var(--foreground))]">{sibling.title}</span>
-                      {siblingPdfDocument && (
-                        <button
-                          type="button"
-                          onClick={(event) => openExternalDocument(event, sanitizeUrl(siblingPdfDocument.archived_public_url))}
-                          className="ui-button-secondary shrink-0"
-                        >
-                          <FileText size={16} />
-                          Open PDF
-                        </button>
-                      )}
-                      {sibling.version_label && (
-                        <span className="shrink-0 rounded-full bg-[hsl(var(--background))] px-2.5 py-0.5 text-xs text-[hsl(var(--muted-foreground))]">
-                          {sibling.version_label}
-                        </span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {renderFamilySourceActions(sibling, { compact: true })}
+                        {sibling.version_label && (
+                          <span className="shrink-0 rounded-full bg-[hsl(var(--background))] px-2.5 py-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+                            {sibling.version_label}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
@@ -529,7 +530,6 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
             </h3>
             <div className="space-y-2">
               {familyChildren.map((child) => {
-                const childPdfDocument = getSupabasePdfDocument(sourceDocumentsByRegulationId.get(child.id) || [])
                 const relationLabel = child.umbrella_relation === 'part_of' ? 'Part of'
                   : child.umbrella_relation === 'component' ? 'Component'
                   : child.umbrella_relation === 'version' ? 'Version'
@@ -542,27 +542,20 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
                     tabIndex={0}
                     onClick={() => navigate(`/framework-library/${child.id}`, { state: { backLabel: regulation?.title } })}
                     onKeyDown={(event) => handleNavigateCardKeyDown(event, `/framework-library/${child.id}`, regulation?.title || 'Back')}
-                    className="flex w-full items-center gap-3 rounded-xl bg-[hsl(var(--muted))] px-4 py-3 text-left hover:bg-[hsl(var(--muted)/0.7)] transition-colors"
+                    className="flex w-full flex-col gap-3 rounded-xl bg-[hsl(var(--muted))] px-4 py-3 text-left transition-colors hover:bg-[hsl(var(--muted)/0.7)] md:flex-row md:items-center"
                   >
                     <span className="flex-1 text-sm font-medium text-[hsl(var(--foreground))]">{child.title}</span>
-                    {childPdfDocument && (
-                      <button
-                        type="button"
-                        onClick={(event) => openExternalDocument(event, sanitizeUrl(childPdfDocument.archived_public_url))}
-                        className="ui-button-secondary shrink-0"
-                      >
-                        <FileText size={16} />
-                        Open PDF
-                      </button>
-                    )}
-                    {child.version_label && (
-                      <span className="shrink-0 rounded-full bg-[hsl(var(--background))] px-2.5 py-0.5 text-xs text-[hsl(var(--muted-foreground))]">
-                        {child.version_label}
-                      </span>
-                    )}
-                    {relationLabel && (
-                      <span className="shrink-0 text-xs text-[hsl(var(--muted-foreground))]">{relationLabel}</span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {renderFamilySourceActions(child, { compact: true })}
+                      {child.version_label && (
+                        <span className="shrink-0 rounded-full bg-[hsl(var(--background))] px-2.5 py-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+                          {child.version_label}
+                        </span>
+                      )}
+                      {relationLabel && (
+                        <span className="shrink-0 text-xs text-[hsl(var(--muted-foreground))]">{relationLabel}</span>
+                      )}
+                    </div>
                   </div>
                 )
               })}

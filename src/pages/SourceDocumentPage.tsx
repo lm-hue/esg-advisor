@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
+import { openExternalInNewTabOnly } from '../lib/openExternal'
 import { fetchRegulationSourceChunks, fetchRegulationSourceDocumentById } from '../lib/regulations'
 import { RegulationSourceChunk, RegulationSourceDocument } from '../types'
 
@@ -88,15 +89,14 @@ export default function SourceDocumentPage() {
             </div>
 
             {displayLink ? (
-              <a
-                href={displayLink}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => openExternalInNewTabOnly(displayLink)}
                 className="ui-button-ghost inline-flex items-center gap-2 self-start"
               >
                 {document?.document_type === 'pdf' ? 'Open PDF' : 'Open Link'}
                 <ExternalLink size={14} />
-              </a>
+              </button>
             ) : null}
           </div>
         </div>

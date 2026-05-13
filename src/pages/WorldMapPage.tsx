@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
+import { openExternalInNewTabOnly } from '../lib/openExternal'
 import { fetchAllRegulations } from '../lib/regulations'
+import { getRegulationSourceLinks } from '../lib/regulationSourceLinks'
 import { Regulation } from '../types'
 import { formatCategoryLabel, formatDateWithPrecision, formatStatusLabel, isRegulationCurrentlyEffective } from '../lib/appTheme'
 import { REGION_COUNTRY_IDS, REGION_EMOJIS } from '../lib/geography'
@@ -76,8 +78,11 @@ function RegionDrawer({
               No regulations found for this region.
             </p>
           ) : (
-            regionData.regs.map((regulation) => (
-              <div key={regulation.id} className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))/0.6] p-4">
+            regionData.regs.map((regulation) => {
+              const { primaryExternalUrl } = getRegulationSourceLinks(regulation)
+
+              return (
+                <div key={regulation.id} className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))/0.6] p-4">
                 <div className="mb-2 flex flex-wrap gap-1.5">
                   <span className="rounded-full bg-[hsl(var(--muted))] px-2 py-0.5 text-[10px] font-semibold text-[hsl(var(--muted-foreground))]">
                     {formatCategoryLabel(regulation.category)}
@@ -98,19 +103,19 @@ function RegionDrawer({
                   <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
                     Effective: {formatDateWithPrecision(regulation.effective_date, regulation.date_precision)}
                   </span>
-                  {regulation.official_source_url && (
-                    <a
-                      href={regulation.official_source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                  {primaryExternalUrl && (
+                    <button
+                      type="button"
+                      onClick={() => openExternalInNewTabOnly(primaryExternalUrl)}
                       className="text-[10px] font-medium text-[hsl(var(--primary))] transition-colors hover:opacity-80"
                     >
                       View details
-                    </a>
+                    </button>
                   )}
                 </div>
-              </div>
-            ))
+                </div>
+              )
+            })
           )}
         </div>
       </div>
