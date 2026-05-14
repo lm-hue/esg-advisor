@@ -34,6 +34,11 @@ import {
   sanitizeRegulationSourceUrl,
 } from '../lib/regulationSourceLinks'
 import { openExternalInNewTabOnly } from '../lib/openExternal'
+import {
+  applyHumanVerifiedOverride,
+  clearHumanVerifiedOverride,
+  setHumanVerifiedOverride,
+} from '../lib/regulationVerification'
 import type {
   Regulation,
   RegulationSourceDocument,
@@ -107,6 +112,13 @@ function parseBinaryFilter(value: string | null): BinaryFilter {
 
 function parseSortMode(value: string | null): SortMode {
   return value === 'title_desc' ? 'title_desc' : 'title_asc'
+}
+
+function isHumanVerifiedColumnMissingError(error: any) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase()
+  return message.includes("could not find the 'human_verified' column") || (
+    message.includes('human_verified') && message.includes('schema cache')
+  )
 }
 
 function sanitizeStorageToken(value: string) {
@@ -451,7 +463,7 @@ function DocumentEditorCard({
   removingStoredPdf: boolean
   isNew?: boolean
 }) {
-  const [expanded, setExpanded] = useState(isNew)
+  const [expanded, setExpanded] = useState(false)
   const previewUrl =
     draft.document_type === 'pdf'
       ? sanitizeRegulationSourceUrl(draft.archived_public_url || draft.document_url || draft.official_source_url)
@@ -730,13 +742,14 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
   const [uploadingDocumentIds, setUploadingDocumentIds] = useState<Record<string, boolean>>({})
   const [removingStoredPdfIds, setRemovingStoredPdfIds] = useState<Record<string, boolean>>({})
   const [detailPreviewMode, setDetailPreviewMode] = useState<'library' | 'esg-home' | null>(null)
-  const [showButtonAudit, setShowButtonAudit] = useState(true)
-  const [showRegulationLinks, setShowRegulationLinks] = useState(true)
-  const [showSourceDocuments, setShowSourceDocuments] = useState(searchParams.get('pdf') === 'yes')
+  const [showButtonAudit, setShowButtonAudit] = useState(false)
+  const [showRegulationLinks, setShowRegulationLinks] = useState(false)
+  const [showSourceDocuments, setShowSourceDocuments] = useState(false)
   const [focusedPdfDocumentId, setFocusedPdfDocumentId] = useState('')
   const [regulationDraft, setRegulationDraft] = useState<RegulationDraft | null>(null)
   const [documentDrafts, setDocumentDrafts] = useState<Record<string, SourceDocumentDraft>>({})
   const [newDocumentDraft, setNewDocumentDraft] = useState<SourceDocumentDraft | null>(null)
+  const [humanVerifiedColumnMissing, setHumanVerifiedColumnMissing] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -1268,6 +1281,18 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
     }
   }
 
+  const applyVerifiedStateLocally = (regulationId: string, verified: boolean) => {
+    if (verified) setHumanVerifiedOverride(regulationId, true)
+    else clearHumanVerifiedOverride(regulationId)
+
+    setRegulations((current) =>
+      current.map((regulation) =>
+        regulation.id === regulationId ? applyHumanVerifiedOverride({ ...regulation, human_verified: verified }) : regulation,
+      ),
+    )
+    setRegulationDraft((current) => (current ? { ...current, human_verified: verified } : current))
+  }
+
   const handleQuickToggleVerified = async () => {
     if (!selectedRegulation || !selectedIsPersisted || !regulationDraft) return
 
@@ -1275,6 +1300,17 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
     setSavingRegulation(true)
 
     try {
+      if (humanVerifiedColumnMissing) {
+        applyVerifiedStateLocally(selectedRegulation.id, nextVerified)
+        setFlashMessage({
+          tone: 'success',
+          text: nextVerified
+            ? 'Marked as human-verified in this deployed app.'
+            : 'Removed the human-verified flag in this deployed app.',
+        })
+        return
+      }
+
       const { data, error: updateError } = await supabase
         .from('regulations')
         .update({ human_verified: nextVerified })
@@ -1315,6 +1351,18 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
         text: nextVerified ? 'Marked as human-verified.' : 'Removed the human-verified flag.',
       })
     } catch (saveError: any) {
+      if (isHumanVerifiedColumnMissingError(saveError)) {
+        setHumanVerifiedColumnMissing(true)
+        applyVerifiedStateLocally(selectedRegulation.id, nextVerified)
+        setFlashMessage({
+          tone: 'success',
+          text: nextVerified
+            ? 'Marked as human-verified in this deployed app.'
+            : 'Removed the human-verified flag in this deployed app.',
+        })
+        return
+      }
+
       setFlashMessage({
         tone: 'error',
         text: saveError?.message || 'The verification flag could not be updated.',
@@ -1329,20 +1377,39 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
 
     setSavingRegulation(true)
     try {
-      const payload = {
+      const payload: Record<string, string | boolean | null> = {
         source_name: regulationDraft.source_name.trim() || null,
         source_url: regulationDraft.source_url.trim() || null,
         official_source_url: regulationDraft.official_source_url.trim() || null,
         policy_page_url: regulationDraft.policy_page_url.trim() || null,
-        human_verified: regulationDraft.human_verified,
       }
 
-      const { data, error: updateError } = await supabase
+      if (!humanVerifiedColumnMissing) {
+        payload.human_verified = regulationDraft.human_verified
+      }
+
+      let { data, error: updateError } = await supabase
         .from('regulations')
         .update(payload)
         .eq('id', selectedRegulation.id)
         .select('*')
         .maybeSingle()
+
+      if (updateError && isHumanVerifiedColumnMissingError(updateError) && 'human_verified' in payload) {
+        setHumanVerifiedColumnMissing(true)
+        applyVerifiedStateLocally(selectedRegulation.id, regulationDraft.human_verified)
+        delete payload.human_verified
+
+        const retry = await supabase
+          .from('regulations')
+          .update(payload)
+          .eq('id', selectedRegulation.id)
+          .select('*')
+          .maybeSingle()
+
+        data = retry.data
+        updateError = retry.error
+      }
 
       if (updateError) throw updateError
 
@@ -1353,12 +1420,14 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
           source_url: data.source_url || '',
           official_source_url: data.official_source_url || null,
           policy_page_url: data.policy_page_url || null,
-          human_verified: data.human_verified ?? false,
+          human_verified: regulationDraft.human_verified,
         }
         setRegulations((current) =>
-          current.map((regulation) => (regulation.id === updatedRegulation.id ? updatedRegulation : regulation)),
+          current.map((regulation) =>
+            regulation.id === updatedRegulation.id ? applyHumanVerifiedOverride(updatedRegulation) : regulation,
+          ),
         )
-        setRegulationDraft(createRegulationDraft(updatedRegulation))
+        setRegulationDraft(createRegulationDraft(applyHumanVerifiedOverride(updatedRegulation)))
       }
 
       setFlashMessage({

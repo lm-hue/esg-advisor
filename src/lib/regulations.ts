@@ -9,6 +9,10 @@ import {
   normalizeRegulationTopics,
   normalizeStatus,
 } from './appTheme'
+import {
+  applyHumanVerifiedOverride,
+  applyHumanVerifiedOverrides,
+} from './regulationVerification'
 import { supabase } from './supabase'
 
 export interface RegulationRecord extends Regulation {
@@ -3581,14 +3585,14 @@ async function findCanonicalDatabaseRegulationMatch(supplemental: RegulationReco
       console.error('Error resolving canonical regulation match:', error)
       continue
     }
-    if (data) return normalizeRegulationRecord(data as RegulationRecord)
+    if (data) return applyHumanVerifiedOverride(normalizeRegulationRecord(data as RegulationRecord))
   }
 
   return null
 }
 
 export function getSupplementalRegulations() {
-  return [...SUPPLEMENTAL_REGULATIONS].map(normalizeRegulationRecord).sort(sortByDateDesc)
+  return applyHumanVerifiedOverrides([...SUPPLEMENTAL_REGULATIONS].map(normalizeRegulationRecord)).sort(sortByDateDesc)
 }
 
 export async function fetchAllRegulations() {
@@ -3622,7 +3626,7 @@ export async function fetchAllRegulations() {
     if (dbIds.has(regulation.id)) return false
     return !collectRegulationIdentityKeys(regulation).some((key) => dbIdentityKeys.has(key))
   })
-  return [...all, ...supplemental].sort(sortByDateDesc)
+  return applyHumanVerifiedOverrides([...all, ...supplemental]).sort(sortByDateDesc)
 }
 
 export async function fetchRegulationById(id: string) {
@@ -3632,13 +3636,13 @@ export async function fetchRegulationById(id: string) {
     return getSupplementalRegulations().find((regulation) => regulation.id === id) || null
   }
 
-  if (data) return normalizeRegulationRecord(data as RegulationRecord)
+  if (data) return applyHumanVerifiedOverride(normalizeRegulationRecord(data as RegulationRecord))
 
   const supplemental = getSupplementalRegulations().find((regulation) => regulation.id === id) || null
   if (!supplemental) return null
 
   const canonicalMatch = await findCanonicalDatabaseRegulationMatch(supplemental)
-  return canonicalMatch || supplemental
+  return applyHumanVerifiedOverride(canonicalMatch || supplemental)
 }
 
 export async function fetchRegulationSourceDocuments(regulationId: string) {

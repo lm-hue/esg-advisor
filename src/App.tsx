@@ -104,6 +104,7 @@ function App() {
         <Route path="/auth" element={<Navigate to="/esg-home?auth=1" replace />} />
         <Route path="/regulations" element={<Navigate to="/esg-home" replace />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route path="/admin" element={<Navigate to="/admin/regulation-source-control" replace />} />
         <Route
           path="/admin/regulation-source-control"
           element={<AdminRegulationSourceDeskPage user={user} />}
