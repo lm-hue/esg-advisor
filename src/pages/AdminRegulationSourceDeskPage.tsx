@@ -1567,22 +1567,21 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                 <h1 className="font-display text-2xl font-semibold text-[hsl(var(--foreground))]">Regulation Source Control Room</h1>
               </div>
             </div>
-            <p className="mt-3 text-sm leading-6 text-[hsl(var(--muted-foreground))]">
-              Hidden maintenance workspace for reviewing the current UI buttons, live links, and Supabase PDF records.
-            </p>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="ui-stat-card">
-                <p className="ui-stat-card-label">Regulations</p>
-                <p className="ui-stat-card-value text-2xl">{regulations.length}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <div className="inline-flex items-baseline gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--muted))/0.22] px-3 py-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Regs</span>
+                <span className="text-sm font-semibold text-[hsl(var(--foreground))]">{regulations.length}</span>
               </div>
-              <div className="ui-stat-card">
-                <p className="ui-stat-card-label">Verified</p>
-                <p className="ui-stat-card-value text-2xl">{verifiedCount}</p>
+              <div className="inline-flex items-baseline gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--muted))/0.22] px-3 py-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Verified</span>
+                <span className="text-sm font-semibold text-[hsl(var(--foreground))]">{verifiedCount}</span>
               </div>
-              <div className="ui-stat-card">
-                <p className="ui-stat-card-label">Signed in</p>
-                <p className="ui-stat-card-value text-xl">{user?.email || 'Admin'}</p>
+              <div className="inline-flex min-w-0 items-baseline gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--muted))/0.22] px-3 py-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">User</span>
+                <span className="max-w-[9rem] truncate text-sm font-semibold text-[hsl(var(--foreground))]">
+                  {user?.email || 'Admin'}
+                </span>
               </div>
             </div>
           </div>
@@ -1739,8 +1738,7 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
             <div className="sticky top-0 z-20 border-b border-[hsl(var(--border))] bg-[hsl(var(--background))/0.96] px-5 py-5 backdrop-blur">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--primary))]">Hidden admin route</p>
-                  <h2 className="mt-1 font-display text-3xl font-semibold text-[hsl(var(--foreground))]">
+                  <h2 className="font-display text-3xl font-semibold text-[hsl(var(--foreground))]">
                     {selectedRegulation?.title || 'Select a regulation'}
                   </h2>
                   {selectedRegulation ? (
@@ -1785,10 +1783,6 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                       Save links
                     </button>
                   ) : null}
-                  <Link to="/framework-library" className={CONTROL_BUTTON_SECONDARY}>
-                    <ArrowLeft size={16} />
-                    Back to library
-                  </Link>
                   {selectedRegulation ? (
                     <>
                       <button
