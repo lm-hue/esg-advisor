@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -93,6 +93,11 @@ interface RegulationAvailabilitySummary {
 
 const ARCHIVE_BUCKET = 'regulation-source-archives'
 const ARCHIVE_PUBLIC_PREFIX = `${supabaseUrl}/storage/v1/object/public/${ARCHIVE_BUCKET}/`
+const CONTROL_BUTTON_BASE =
+  'inline-flex items-center justify-center gap-2 rounded-md border px-2.5 py-1.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60'
+const CONTROL_BUTTON_PRIMARY = `${CONTROL_BUTTON_BASE} border-transparent bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))/0.92]`
+const CONTROL_BUTTON_SECONDARY = `${CONTROL_BUTTON_BASE} border-[hsl(var(--border))] bg-white text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))/0.45]`
+const CONTROL_BUTTON_VERIFIED = `${CONTROL_BUTTON_BASE} border-amber-200 bg-amber-100 text-amber-700 hover:bg-amber-200`
 
 function parseBinaryFilter(value: string | null): BinaryFilter {
   return value === 'yes' || value === 'no' ? value : 'all'
@@ -321,86 +326,6 @@ function getPreviewUrl(kind: 'official' | 'policy' | 'pdf', regulation: Regulati
   return sanitizeRegulationSourceUrl(pdfDocument?.archived_public_url)
 }
 
-function PreviewCard({
-  label,
-  url,
-  shown,
-  note,
-  kind,
-}: {
-  label: string
-  url: string
-  shown: boolean
-  note: string
-  kind: 'official' | 'policy' | 'pdf'
-}) {
-  return (
-    <div className="surface-card flex min-h-[28rem] flex-col overflow-hidden">
-      <div className="border-b border-[hsl(var(--border))] px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{label}</p>
-            <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-              {shown ? 'Shown in current UI' : 'Hidden in current UI'}
-            </p>
-          </div>
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-              shown
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-slate-100 text-slate-600'
-            }`}
-          >
-            {shown ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-            {shown ? 'Shown' : 'Hidden'}
-          </span>
-        </div>
-      </div>
-
-      <div className="flex flex-1 flex-col gap-3 px-4 py-4">
-        <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))/0.4] px-3 py-2 text-xs text-[hsl(var(--muted-foreground))]">
-          <p className="font-medium text-[hsl(var(--foreground))]">{url || 'No URL currently set'}</p>
-          <p className="mt-1">{note}</p>
-        </div>
-
-        <div className="relative min-h-[16rem] flex-1 overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))/0.35]">
-          {url ? (
-            <>
-              <iframe
-                title={`${label} preview`}
-                src={kind === 'pdf' ? `${url}#toolbar=0&navpanes=0&scrollbar=0` : url}
-                className="h-full min-h-[16rem] w-full border-0 bg-white"
-                loading="lazy"
-                referrerPolicy="no-referrer"
-              />
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-white/90 via-white/50 to-transparent px-3 py-2 text-[11px] text-[hsl(var(--muted-foreground))]">
-                {kind === 'pdf'
-                  ? 'Embedded PDF preview from Supabase.'
-                  : 'Embedded web preview. Some official sites may block framing, so blank previews can still have valid links.'}
-              </div>
-            </>
-          ) : (
-            <div className="flex h-full min-h-[16rem] items-center justify-center px-6 text-center text-sm text-[hsl(var(--muted-foreground))]">
-              There is no saved URL for this button yet.
-            </div>
-          )}
-        </div>
-
-        {url ? (
-          <button
-            type="button"
-            onClick={() => openExternalInNewTabOnly(url)}
-            className="ui-button-secondary self-start"
-          >
-            <ExternalLink size={16} />
-            Open in new tab
-          </button>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
 function ButtonAuditPill({
   label,
   shown,
@@ -419,6 +344,83 @@ function ButtonAuditPill({
       {shown ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
       {label}
     </span>
+  )
+}
+
+function QuickStatusCard({
+  label,
+  shown,
+  url,
+  tone,
+  previewKind,
+  emptyLabel = 'No URL saved yet',
+  children,
+}: {
+  label: string
+  shown: boolean
+  url: string
+  tone: 'emerald' | 'sky' | 'violet'
+  previewKind: 'official' | 'policy' | 'pdf'
+  emptyLabel?: string
+  children?: ReactNode
+}) {
+  const toneClasses =
+    tone === 'emerald'
+      ? shown
+        ? 'bg-emerald-100 text-emerald-700'
+        : 'bg-slate-100 text-slate-600'
+      : tone === 'sky'
+        ? shown
+          ? 'bg-sky-100 text-sky-700'
+          : 'bg-slate-100 text-slate-600'
+        : shown
+          ? 'bg-violet-100 text-violet-700'
+          : 'bg-slate-100 text-slate-600'
+
+  return (
+    <div className="surface-card flex h-full flex-col p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{label}</p>
+          <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{shown ? 'Visible in current UI' : 'Hidden in current UI'}</p>
+        </div>
+        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClasses}`}>
+          {shown ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+          {shown ? 'Shown' : 'Hidden'}
+        </span>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))/0.32] px-3 py-3">
+        <p className="line-clamp-2 break-all text-xs font-medium text-[hsl(var(--foreground))]">
+          {url || emptyLabel}
+        </p>
+      </div>
+
+      <div className="mt-3 relative min-h-[10rem] flex-1 overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))/0.18]">
+        {url ? (
+          <>
+            <iframe
+              title={`${label} preview`}
+              src={previewKind === 'pdf' ? `${url}#toolbar=0&navpanes=0&scrollbar=0` : url}
+              className="h-full min-h-[10rem] w-full border-0 bg-white"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+            />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-white/90 via-white/50 to-transparent px-3 py-2 text-[11px] text-[hsl(var(--muted-foreground))]">
+              {previewKind === 'pdf'
+                ? 'Supabase PDF preview'
+                : 'Embedded preview. Some sites may block framing.'}
+            </div>
+          </>
+        ) : (
+          <div className="flex h-full min-h-[10rem] items-center justify-center px-6 text-center text-sm text-[hsl(var(--muted-foreground))]">
+            No saved target yet.
+          </div>
+        )}
+      </div>
+
+      {children ? <div className="mt-4 space-y-3">{children}</div> : null}
+    </div>
   )
 }
 
@@ -469,7 +471,7 @@ function DocumentEditorCard({
               type="button"
               onClick={onSave}
               disabled={saving}
-              className="ui-button-primary disabled:cursor-not-allowed disabled:opacity-60"
+              className={CONTROL_BUTTON_PRIMARY}
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               {isNew ? 'Add record' : 'Save changes'}
@@ -479,7 +481,7 @@ function DocumentEditorCard({
                 type="button"
                 onClick={onDelete}
                 disabled={deleting}
-                className="ui-button-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                className={CONTROL_BUTTON_SECONDARY}
               >
                 {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                 Delete
@@ -573,7 +575,7 @@ function DocumentEditorCard({
               Manage stored PDF
             </span>
             <div className="flex flex-wrap items-center gap-2">
-              <label className="ui-button-secondary cursor-pointer">
+              <label className={`${CONTROL_BUTTON_SECONDARY} cursor-pointer`}>
                 {uploadingPdf ? <Loader2 size={16} className="animate-spin" /> : <FilePlus2 size={16} />}
                 {draft.archived_public_url ? 'Upload replacement PDF' : 'Upload PDF to Supabase'}
                 <input
@@ -592,7 +594,7 @@ function DocumentEditorCard({
                 type="button"
                 onClick={onRemoveStoredPdf}
                 disabled={!draft.archived_public_url || removingStoredPdf || uploadingPdf}
-                className="ui-button-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                className={CONTROL_BUTTON_SECONDARY}
               >
                 {removingStoredPdf ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                 Remove stored PDF
@@ -675,7 +677,7 @@ function DocumentEditorCard({
               <button
                 type="button"
                 onClick={() => openExternalInNewTabOnly(previewUrl)}
-                className="ui-button-secondary self-start"
+                className={`${CONTROL_BUTTON_SECONDARY} self-start`}
               >
                 <Eye size={16} />
                 Open target
@@ -710,6 +712,9 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
   const [deletingDocumentIds, setDeletingDocumentIds] = useState<Record<string, boolean>>({})
   const [uploadingDocumentIds, setUploadingDocumentIds] = useState<Record<string, boolean>>({})
   const [removingStoredPdfIds, setRemovingStoredPdfIds] = useState<Record<string, boolean>>({})
+  const [detailPreviewMode, setDetailPreviewMode] = useState<'library' | 'esg-home' | null>(null)
+  const [showSourceDocuments, setShowSourceDocuments] = useState(searchParams.get('pdf') === 'yes')
+  const [focusedPdfDocumentId, setFocusedPdfDocumentId] = useState('')
   const [regulationDraft, setRegulationDraft] = useState<RegulationDraft | null>(null)
   const [documentDrafts, setDocumentDrafts] = useState<Record<string, SourceDocumentDraft>>({})
   const [newDocumentDraft, setNewDocumentDraft] = useState<SourceDocumentDraft | null>(null)
@@ -914,6 +919,42 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
     if (!selectedRegulation) return null
     return getUiButtonAudit(selectedRegulation, selectedDocuments)
   }, [selectedDocuments, selectedRegulation])
+  const selectedPdfDocuments = useMemo(
+    () =>
+      selectedDocuments.filter(
+        (document) =>
+          document.document_type === 'pdf' && !!sanitizeRegulationSourceUrl(document.archived_public_url),
+      ),
+    [selectedDocuments],
+  )
+  useEffect(() => {
+    if (selectedPdfDocuments.length === 0) {
+      setFocusedPdfDocumentId('')
+      return
+    }
+
+    if (!selectedPdfDocuments.some((document) => document.id === focusedPdfDocumentId)) {
+      setFocusedPdfDocumentId(selectedPdfDocuments[0].id)
+    }
+  }, [focusedPdfDocumentId, selectedPdfDocuments])
+  const selectedPrimaryPdfDocument = useMemo(
+    () =>
+      selectedPdfDocuments.find((document) => document.id === focusedPdfDocumentId) ||
+      selectedPdfDocuments[0] ||
+      getSupabasePdfDocument(selectedDocuments) ||
+      null,
+    [focusedPdfDocumentId, selectedDocuments, selectedPdfDocuments],
+  )
+  const selectedPrimaryPdfDraft = useMemo(() => {
+    if (!selectedRegulation || !selectedPrimaryPdfDocument) return null
+    return documentDrafts[selectedPrimaryPdfDocument.id] || createSourceDocumentDraft(selectedRegulation, selectedPrimaryPdfDocument)
+  }, [documentDrafts, selectedPrimaryPdfDocument, selectedRegulation])
+  const embeddedDetailUrl = useMemo(() => {
+    if (!selectedRegulation || !detailPreviewMode) return ''
+    return detailPreviewMode === 'library'
+      ? `/framework-library/${selectedRegulation.id}`
+      : `/esg-home/${selectedRegulation.id}`
+  }, [detailPreviewMode, selectedRegulation])
 
   const verifiedCount = useMemo(
     () => regulations.filter((regulation) => regulation.human_verified).length,
@@ -925,6 +966,12 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
     nextParams.set('id', regulationId)
     if (searchQuery) nextParams.set('q', searchQuery)
     setSearchParams(nextParams, { replace: true })
+  }
+
+  const openNewPdfDraft = () => {
+    if (!selectedRegulation) return
+    setShowSourceDocuments(true)
+    setNewDocumentDraft((current) => current || createSourceDocumentDraft(selectedRegulation))
   }
 
   const updateDocumentsForRegulation = (regulationId: string, updater: (documents: RegulationSourceDocument[]) => RegulationSourceDocument[]) => {
@@ -1042,8 +1089,11 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
     }
   }
 
-  const applyUploadedPdfToNewDraft = async (file: File) => {
-    if (!selectedRegulation || !newDocumentDraft) return
+  const applyUploadedPdfToNewDraft = async (file: File, draftOverride?: SourceDocumentDraft | null) => {
+    if (!selectedRegulation) return
+
+    const baseDraft = draftOverride || newDocumentDraft
+    if (!baseDraft) return
 
     const pendingKey = '__new__'
     setUploadingDocumentIds((current) => ({ ...current, [pendingKey]: true }))
@@ -1054,7 +1104,7 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
       }
 
       const sha256 = await computeSha256Hex(file)
-      const storagePath = buildAdminPdfStoragePath(selectedRegulation.id, newDocumentDraft, file.name, sha256)
+      const storagePath = buildAdminPdfStoragePath(selectedRegulation.id, baseDraft, file.name, sha256)
       const { error: uploadError } = await supabase.storage.from(ARCHIVE_BUCKET).upload(storagePath, file, {
         contentType: 'application/pdf',
         upsert: true,
@@ -1065,19 +1115,15 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
       const { data: publicUrlData } = supabase.storage.from(ARCHIVE_BUCKET).getPublicUrl(storagePath)
       const publicUrl = publicUrlData.publicUrl
 
-      setNewDocumentDraft((current) =>
-        current
-          ? {
-              ...current,
-              document_type: 'pdf',
-              document_url: current.document_url.trim() || publicUrl,
-              archived_storage_path: storagePath,
-              archived_public_url: publicUrl,
-              archived_mime_type: 'application/pdf',
-              content_sha256: sha256,
-            }
-          : current,
-      )
+      setNewDocumentDraft({
+        ...baseDraft,
+        document_type: 'pdf',
+        document_url: baseDraft.document_url.trim() || publicUrl,
+        archived_storage_path: storagePath,
+        archived_public_url: publicUrl,
+        archived_mime_type: 'application/pdf',
+        content_sha256: sha256,
+      })
 
       setFlashMessage({
         tone: 'success',
@@ -1200,6 +1246,62 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
       })
     } finally {
       setRemovingStoredPdfIds((current) => ({ ...current, [pendingKey]: false }))
+    }
+  }
+
+  const handleQuickToggleVerified = async () => {
+    if (!selectedRegulation || !selectedIsPersisted || !regulationDraft) return
+
+    const nextVerified = !regulationDraft.human_verified
+    setSavingRegulation(true)
+
+    try {
+      const { data, error: updateError } = await supabase
+        .from('regulations')
+        .update({ human_verified: nextVerified })
+        .eq('id', selectedRegulation.id)
+        .select('*')
+        .maybeSingle()
+
+      if (updateError) throw updateError
+
+      if (data) {
+        const updatedRegulation = {
+          ...selectedRegulation,
+          ...data,
+          source_name: data.source_name || '',
+          source_url: data.source_url || '',
+          official_source_url: data.official_source_url || null,
+          policy_page_url: data.policy_page_url || null,
+          human_verified: data.human_verified ?? false,
+        }
+
+        setRegulations((current) =>
+          current.map((regulation) => (regulation.id === updatedRegulation.id ? updatedRegulation : regulation)),
+        )
+        setRegulationDraft((current) =>
+          current ? { ...current, human_verified: updatedRegulation.human_verified ?? false } : current,
+        )
+      } else {
+        setRegulations((current) =>
+          current.map((regulation) =>
+            regulation.id === selectedRegulation.id ? { ...regulation, human_verified: nextVerified } : regulation,
+          ),
+        )
+        setRegulationDraft((current) => (current ? { ...current, human_verified: nextVerified } : current))
+      }
+
+      setFlashMessage({
+        tone: 'success',
+        text: nextVerified ? 'Marked as human-verified.' : 'Removed the human-verified flag.',
+      })
+    } catch (saveError: any) {
+      setFlashMessage({
+        tone: 'error',
+        text: saveError?.message || 'The verification flag could not be updated.',
+      })
+    } finally {
+      setSavingRegulation(false)
     }
   }
 
@@ -1439,7 +1541,7 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
               <h1 className="text-lg font-semibold text-[hsl(var(--foreground))]">Admin source desk unavailable</h1>
               <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">{error}</p>
               <div className="mt-4">
-                <Link to="/framework-library" className="ui-button-secondary">
+                <Link to="/framework-library" className={CONTROL_BUTTON_SECONDARY}>
                   <ArrowLeft size={16} />
                   Back to library
                 </Link>
@@ -1454,7 +1556,7 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
   return (
     <div className="h-screen overflow-y-auto bg-[hsl(var(--background))]">
       <div className="mx-auto flex min-h-full w-full max-w-[1700px] flex-col gap-6 px-4 py-5 md:px-6 lg:h-full lg:overflow-hidden lg:flex-row">
-        <aside className="surface-card flex w-full shrink-0 flex-col overflow-hidden lg:h-full lg:w-[26rem]">
+        <aside className="surface-card flex w-full shrink-0 flex-col overflow-hidden lg:h-full lg:w-[24rem]">
           <div className="border-b border-[hsl(var(--border))] px-5 py-5">
             <div className="flex items-center gap-3">
               <div className="page-icon h-11 w-11 rounded-2xl">
@@ -1633,8 +1735,8 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
         </aside>
 
         <main className="min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto">
-          <div className="surface-card overflow-hidden">
-            <div className="border-b border-[hsl(var(--border))] px-5 py-5">
+          <div className="surface-card overflow-hidden lg:min-h-full">
+            <div className="sticky top-0 z-20 border-b border-[hsl(var(--border))] bg-[hsl(var(--background))/0.96] px-5 py-5 backdrop-blur">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(var(--primary))]">Hidden admin route</p>
@@ -1643,7 +1745,7 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                   </h2>
                   {selectedRegulation ? (
                     <>
-                      <p className="mt-2 max-w-4xl text-sm leading-6 text-[hsl(var(--muted-foreground))]">
+                      <p className="mt-2 line-clamp-4 max-w-4xl text-sm leading-6 text-[hsl(var(--muted-foreground))]">
                         {selectedRegulation.formal_title || selectedRegulation.description || selectedRegulation.full_description || 'No description available.'}
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -1657,20 +1759,54 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <Link to="/framework-library" className="ui-button-secondary">
+                  {selectedRegulation ? (
+                    <button
+                      type="button"
+                      onClick={handleQuickToggleVerified}
+                      disabled={!selectedIsPersisted || savingRegulation || !regulationDraft}
+                      className={`${
+                        regulationDraft?.human_verified
+                          ? CONTROL_BUTTON_VERIFIED
+                          : CONTROL_BUTTON_PRIMARY
+                      }`}
+                    >
+                      {savingRegulation ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                      {regulationDraft?.human_verified ? 'Verified' : 'Mark as Verified'}
+                    </button>
+                  ) : null}
+                  {selectedRegulation ? (
+                    <button
+                      type="button"
+                      onClick={handleSaveRegulation}
+                      disabled={savingRegulation || !selectedIsPersisted || !regulationDraft}
+                      className={CONTROL_BUTTON_PRIMARY}
+                    >
+                      {savingRegulation ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                      Save links
+                    </button>
+                  ) : null}
+                  <Link to="/framework-library" className={CONTROL_BUTTON_SECONDARY}>
                     <ArrowLeft size={16} />
                     Back to library
                   </Link>
                   {selectedRegulation ? (
                     <>
-                      <Link to={`/framework-library/${selectedRegulation.id}`} className="ui-button-secondary">
+                      <button
+                        type="button"
+                        onClick={() => setDetailPreviewMode((current) => (current === 'library' ? null : 'library'))}
+                        className={CONTROL_BUTTON_SECONDARY}
+                      >
                         <Globe2 size={16} />
-                        Open library detail
-                      </Link>
-                      <Link to={`/esg-home/${selectedRegulation.id}`} className="ui-button-secondary">
+                        {detailPreviewMode === 'library' ? 'Hide library detail' : 'Open library detail'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDetailPreviewMode((current) => (current === 'esg-home' ? null : 'esg-home'))}
+                        className={CONTROL_BUTTON_SECONDARY}
+                      >
                         <Globe2 size={16} />
-                        Open ESG Home detail
-                      </Link>
+                        {detailPreviewMode === 'esg-home' ? 'Hide ESG Home detail' : 'Open ESG Home detail'}
+                      </button>
                     </>
                   ) : null}
                 </div>
@@ -1694,29 +1830,177 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                 Select a regulation from the left panel to review and edit its current links and PDFs.
               </div>
             ) : (
-              <div className="space-y-8 px-5 py-5">
-                <section className="grid gap-4 xl:grid-cols-3">
-                  <PreviewCard
+              <div className="space-y-6 px-5 py-5">
+                {embeddedDetailUrl ? (
+                  <section className="surface-card overflow-hidden">
+                    <div className="flex items-center justify-between gap-3 border-b border-[hsl(var(--border))] px-4 py-3">
+                      <div>
+                        <p className="text-sm font-semibold text-[hsl(var(--foreground))]">
+                          {detailPreviewMode === 'library' ? 'Library detail window' : 'ESG Home detail window'}
+                        </p>
+                        <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                          Embedded inside the control room for quick checking.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDetailPreviewMode(null)}
+                        className={CONTROL_BUTTON_SECONDARY}
+                      >
+                        <XCircle size={16} />
+                        Close window
+                      </button>
+                    </div>
+                    <div className="h-[30rem] overflow-hidden bg-white">
+                      <iframe
+                        title={detailPreviewMode === 'library' ? 'Library detail preview' : 'ESG Home detail preview'}
+                        src={embeddedDetailUrl}
+                        className="h-full w-full border-0"
+                        loading="lazy"
+                      />
+                    </div>
+                  </section>
+                ) : null}
+
+                <section className="grid gap-4 lg:grid-cols-3">
+                  <QuickStatusCard
                     label="Official Website"
-                    url={getPreviewUrl('official', selectedRegulation, selectedDocuments)}
                     shown={selectedButtonAudit.officialWebsite.shown}
-                    note={selectedButtonAudit.officialWebsite.note}
-                    kind="official"
-                  />
-                  <PreviewCard
+                    url={getPreviewUrl('official', selectedRegulation, selectedDocuments)}
+                    tone="emerald"
+                    previewKind="official"
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      {getPreviewUrl('official', selectedRegulation, selectedDocuments) ? (
+                        <button
+                          type="button"
+                          onClick={() => openExternalInNewTabOnly(getPreviewUrl('official', selectedRegulation, selectedDocuments))}
+                          className={CONTROL_BUTTON_SECONDARY}
+                        >
+                          <ExternalLink size={16} />
+                          Open
+                        </button>
+                      ) : null}
+                    </div>
+                  </QuickStatusCard>
+
+                  <QuickStatusCard
                     label="Link to Policy"
-                    url={getPreviewUrl('policy', selectedRegulation, selectedDocuments)}
                     shown={selectedButtonAudit.policyPage.shown}
-                    note={selectedButtonAudit.policyPage.note}
-                    kind="policy"
-                  />
-                  <PreviewCard
+                    url={getPreviewUrl('policy', selectedRegulation, selectedDocuments)}
+                    tone="sky"
+                    previewKind="policy"
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      {getPreviewUrl('policy', selectedRegulation, selectedDocuments) ? (
+                        <button
+                          type="button"
+                          onClick={() => openExternalInNewTabOnly(getPreviewUrl('policy', selectedRegulation, selectedDocuments))}
+                          className={CONTROL_BUTTON_SECONDARY}
+                        >
+                          <ExternalLink size={16} />
+                          Open
+                        </button>
+                      ) : null}
+                    </div>
+                  </QuickStatusCard>
+
+                  <QuickStatusCard
                     label="Supabase PDF"
-                    url={getPreviewUrl('pdf', selectedRegulation, selectedDocuments)}
                     shown={selectedButtonAudit.pdf.shown}
-                    note={selectedButtonAudit.pdf.note}
-                    kind="pdf"
-                  />
+                    url={getPreviewUrl('pdf', selectedRegulation, selectedDocuments)}
+                    tone="violet"
+                    previewKind="pdf"
+                    emptyLabel="No saved PDF yet"
+                  >
+                    <div className="space-y-3">
+                      {selectedPdfDocuments.length > 1 ? (
+                        <div>
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
+                            Saved PDFs ({selectedPdfDocuments.length})
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedPdfDocuments.map((document) => (
+                              <button
+                                key={document.id}
+                                type="button"
+                                onClick={() => setFocusedPdfDocumentId(document.id)}
+                                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                                  document.id === selectedPrimaryPdfDocument?.id
+                                    ? 'border-violet-300 bg-violet-100 text-violet-700'
+                                    : 'border-[hsl(var(--border))] bg-white text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))/0.45]'
+                                }`}
+                              >
+                                {document.version_label || document.title || 'PDF'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {getPreviewUrl('pdf', selectedRegulation, selectedDocuments) ? (
+                          <button
+                            type="button"
+                            onClick={() => openExternalInNewTabOnly(getPreviewUrl('pdf', selectedRegulation, selectedDocuments))}
+                            className={CONTROL_BUTTON_SECONDARY}
+                          >
+                            <ExternalLink size={16} />
+                            Open PDF
+                          </button>
+                        ) : null}
+                        <label className={`${CONTROL_BUTTON_SECONDARY} cursor-pointer`}>
+                          <FilePlus2 size={16} />
+                          {selectedPrimaryPdfDocument ? 'Replace PDF' : 'Upload PDF'}
+                          <input
+                            type="file"
+                            accept="application/pdf,.pdf"
+                            className="hidden"
+                            disabled={!!uploadingDocumentIds[selectedPrimaryPdfDocument?.id || '__new__']}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0]
+                              event.currentTarget.value = ''
+                              if (!file) return
+                              if (selectedPrimaryPdfDocument && selectedPrimaryPdfDraft) {
+                                void applyUploadedPdfToExistingDocument(selectedPrimaryPdfDocument.id, selectedPrimaryPdfDraft, file)
+                                return
+                              }
+                              const baseDraft = newDocumentDraft || createSourceDocumentDraft(selectedRegulation)
+                              void applyUploadedPdfToNewDraft(file, baseDraft)
+                            }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedPrimaryPdfDocument && selectedPrimaryPdfDraft) {
+                              void removeStoredPdfFromExistingDocument(selectedPrimaryPdfDocument.id, selectedPrimaryPdfDraft)
+                              return
+                            }
+                            if (newDocumentDraft?.archived_public_url) {
+                              void removeStoredPdfFromNewDraft()
+                            }
+                          }}
+                          disabled={
+                            (!selectedPrimaryPdfDocument && !newDocumentDraft?.archived_public_url) ||
+                            !!removingStoredPdfIds[selectedPrimaryPdfDocument?.id || '__new__']
+                          }
+                          className={CONTROL_BUTTON_SECONDARY}
+                        >
+                          <Trash2 size={16} />
+                          Remove PDF
+                        </button>
+                        <button
+                          type="button"
+                          onClick={openNewPdfDraft}
+                          className={CONTROL_BUTTON_SECONDARY}
+                        >
+                          <FilePlus2 size={16} />
+                          Add another PDF
+                        </button>
+                      </div>
+                    </div>
+                  </QuickStatusCard>
                 </section>
 
                 <section className="surface-card overflow-hidden">
@@ -1725,7 +2009,7 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                       <div>
                         <p className="text-lg font-semibold text-[hsl(var(--foreground))]">Current UI button audit</p>
                         <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                          This comment matches the live detail-page button rules used in the current frontend.
+                          Fast view of what the user currently sees, without opening the public page.
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -1756,38 +2040,27 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                   </div>
                 </section>
 
-                <section className="surface-card overflow-hidden">
-                  <div className="border-b border-[hsl(var(--border))] px-4 py-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-lg font-semibold text-[hsl(var(--foreground))]">Regulation-level links</p>
-                        <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                          Edit the primary URLs the current UI reads from the regulation row itself.
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                            selectedIsPersisted
-                              ? 'bg-slate-100 text-slate-700'
-                              : 'bg-amber-100 text-amber-700'
-                          }`}
-                        >
-                          {selectedIsPersisted ? <Database size={13} /> : <Unplug size={13} />}
-                          {selectedIsPersisted ? 'Live DB row' : 'Supplemental only'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={handleSaveRegulation}
-                          disabled={savingRegulation || !selectedIsPersisted}
-                          className="ui-button-primary disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {savingRegulation ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                          Save regulation links
-                        </button>
-                      </div>
+                <details className="surface-card overflow-hidden" open>
+                  <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 border-b border-[hsl(var(--border))] px-4 py-4">
+                    <div>
+                      <p className="text-lg font-semibold text-[hsl(var(--foreground))]">Regulation-level links</p>
+                      <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
+                        Edit the main Official Website and Link to Policy URLs used by the public UI.
+                      </p>
                     </div>
-                  </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                          selectedIsPersisted
+                            ? 'bg-slate-100 text-slate-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {selectedIsPersisted ? <Database size={13} /> : <Unplug size={13} />}
+                        {selectedIsPersisted ? 'Live DB row' : 'Supplemental only'}
+                      </span>
+                    </div>
+                  </summary>
 
                   <div className="grid gap-4 px-4 py-4 md:grid-cols-2">
                     <label className="block">
@@ -1834,40 +2107,6 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                         disabled={!selectedIsPersisted}
                       />
                     </label>
-                    <label className="block md:col-span-2">
-                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
-                        Human verification
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          selectedIsPersisted &&
-                          setRegulationDraft({
-                            ...regulationDraft,
-                            human_verified: !regulationDraft.human_verified,
-                          })
-                        }
-                        disabled={!selectedIsPersisted}
-                        className={`flex w-full items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition ${
-                          regulationDraft.human_verified
-                            ? 'border-amber-300 bg-amber-50'
-                            : 'border-[hsl(var(--border))] bg-white'
-                        } disabled:cursor-not-allowed disabled:opacity-60`}
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-[hsl(var(--foreground))]">
-                            {regulationDraft.human_verified ? 'Marked as verified by a human reviewer' : 'Mark as verified by a human reviewer'}
-                          </p>
-                          <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                            This same flag is shown in the public regulation experience so users can see which records were checked by a person.
-                          </p>
-                        </div>
-                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${regulationDraft.human_verified ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                          {regulationDraft.human_verified ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
-                          {regulationDraft.human_verified ? 'Verified' : 'Not verified'}
-                        </span>
-                      </button>
-                    </label>
                   </div>
 
                   {!selectedIsPersisted ? (
@@ -1875,67 +2114,69 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                       This regulation is currently supplemental-only in the frontend merge layer, so regulation-row edits are disabled. You can still add or edit source documents below for this ID.
                     </div>
                   ) : null}
-                </section>
+                </details>
 
-                <section className="space-y-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                <section className="surface-card overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[hsl(var(--border))] px-4 py-4">
                     <div>
                       <p className="text-lg font-semibold text-[hsl(var(--foreground))]">Source documents and PDFs</p>
                       <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                        Edit or remove the current document records, or add a new HTML / PDF record for this regulation.
+                        Manage all attached source rows here, including multiple PDFs for one regulation.
                       </p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setNewDocumentDraft(createSourceDocumentDraft(selectedRegulation))}
-                      className="ui-button-secondary"
+                      onClick={() => setShowSourceDocuments((current) => !current)}
+                      className={CONTROL_BUTTON_SECONDARY}
                     >
-                      <FilePlus2 size={16} />
-                      Add source document / PDF
+                      {showSourceDocuments ? 'Hide editors' : 'Show editors'}
                     </button>
                   </div>
+                  {showSourceDocuments ? (
+                    <div className="space-y-4 px-4 py-4">
+                    {newDocumentDraft ? (
+                      <DocumentEditorCard
+                        draft={newDocumentDraft}
+                        onChange={setNewDocumentDraft}
+                        onSave={handleCreateDocument}
+                        onUploadPdf={(file) => applyUploadedPdfToNewDraft(file, newDocumentDraft)}
+                        onRemoveStoredPdf={removeStoredPdfFromNewDraft}
+                        saving={!!savingDocumentIds.__new__}
+                        deleting={false}
+                        uploadingPdf={!!uploadingDocumentIds.__new__}
+                        removingStoredPdf={!!removingStoredPdfIds.__new__}
+                        isNew
+                      />
+                    ) : null}
 
-                  {newDocumentDraft ? (
-                    <DocumentEditorCard
-                      draft={newDocumentDraft}
-                      onChange={setNewDocumentDraft}
-                      onSave={handleCreateDocument}
-                      onUploadPdf={applyUploadedPdfToNewDraft}
-                      onRemoveStoredPdf={removeStoredPdfFromNewDraft}
-                      saving={!!savingDocumentIds.__new__}
-                      deleting={false}
-                      uploadingPdf={!!uploadingDocumentIds.__new__}
-                      removingStoredPdf={!!removingStoredPdfIds.__new__}
-                      isNew
-                    />
+                    {selectedDocuments.length === 0 ? (
+                      <div className="surface-card-muted px-5 py-8 text-center text-sm text-[hsl(var(--muted-foreground))]">
+                        No source documents are currently attached to this regulation.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {selectedDocuments.map((document) => {
+                          const draft = documentDrafts[document.id] || createSourceDocumentDraft(selectedRegulation, document)
+                          return (
+                            <DocumentEditorCard
+                              key={document.id}
+                              draft={draft}
+                              onChange={(nextDraft) => setDocumentDrafts((current) => ({ ...current, [document.id]: nextDraft }))}
+                              onSave={() => handleSaveDocument(draft)}
+                              onDelete={() => handleDeleteDocument(document.id, document.title)}
+                              onUploadPdf={(file) => applyUploadedPdfToExistingDocument(document.id, draft, file)}
+                              onRemoveStoredPdf={() => removeStoredPdfFromExistingDocument(document.id, draft)}
+                              saving={!!savingDocumentIds[document.id]}
+                              deleting={!!deletingDocumentIds[document.id]}
+                              uploadingPdf={!!uploadingDocumentIds[document.id]}
+                              removingStoredPdf={!!removingStoredPdfIds[document.id]}
+                            />
+                          )
+                        })}
+                      </div>
+                    )}
+                    </div>
                   ) : null}
-
-                  {selectedDocuments.length === 0 ? (
-                    <div className="surface-card-muted px-5 py-8 text-center text-sm text-[hsl(var(--muted-foreground))]">
-                      No source documents are currently attached to this regulation.
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {selectedDocuments.map((document) => {
-                        const draft = documentDrafts[document.id] || createSourceDocumentDraft(selectedRegulation, document)
-                        return (
-                          <DocumentEditorCard
-                            key={document.id}
-                            draft={draft}
-                            onChange={(nextDraft) => setDocumentDrafts((current) => ({ ...current, [document.id]: nextDraft }))}
-                            onSave={() => handleSaveDocument(draft)}
-                            onDelete={() => handleDeleteDocument(document.id, document.title)}
-                            onUploadPdf={(file) => applyUploadedPdfToExistingDocument(document.id, draft, file)}
-                            onRemoveStoredPdf={() => removeStoredPdfFromExistingDocument(document.id, draft)}
-                            saving={!!savingDocumentIds[document.id]}
-                            deleting={!!deletingDocumentIds[document.id]}
-                            uploadingPdf={!!uploadingDocumentIds[document.id]}
-                            removingStoredPdf={!!removingStoredPdfIds[document.id]}
-                          />
-                        )
-                      })}
-                    </div>
-                  )}
                 </section>
               </div>
             )}
