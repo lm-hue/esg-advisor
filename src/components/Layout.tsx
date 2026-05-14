@@ -30,6 +30,16 @@ const routeDescriptions: Record<string, string> = {
   '/analytics': 'Review platform-wide regulation, compliance, and engagement activity.',
 }
 
+const sidebarDescriptions: Record<string, string> = {
+  '/regulations': 'Browse the latest sustainability regulations and track the ones that matter.',
+  '/timeline': 'View upcoming deadlines and see which rules need attention first.',
+  '/advisor': 'Ask ESG questions and get guidance grounded in your regulation data.',
+  '/community': 'Discuss regulatory changes, interpretations, and implementation ideas.',
+  '/alerts': 'Configure targeted notifications for the categories and regions you monitor.',
+  '/glossary': 'Look up reporting terms, frameworks, and regulatory acronyms quickly.',
+  '/analytics': 'Review platform-wide regulation, compliance, and engagement activity.',
+}
+
 export default function Layout({ user, isAdmin }: LayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -113,7 +123,14 @@ export default function Layout({ user, isAdmin }: LayoutProps) {
                     }`}
                   >
                     <Icon size={18} className={active ? 'text-[#f7d16a]' : 'text-white/55'} />
-                    {sidebarOpen && <span className="truncate">{item.label}</span>}
+                    {sidebarOpen && (
+                      <span className="min-w-0 flex-1 text-left">
+                        <span className="block truncate">{item.label}</span>
+                        <span className={`mt-0.5 block text-[12px] font-normal leading-5 ${active ? 'text-white/72' : 'text-white/48'}`}>
+                          {sidebarDescriptions[item.path]}
+                        </span>
+                      </span>
+                    )}
                   </button>
                 )
               })}
