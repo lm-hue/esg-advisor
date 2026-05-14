@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { formatDistanceToNow, format } from 'date-fns'
 import { withAuthModal } from '../lib/authModal'
+import VerifiedBadge from '../components/VerifiedBadge'
 import { fetchAllRegulations } from '../lib/regulations'
 import { getUserWatchlist, saveUserWatchlist } from '../lib/userSettings'
 import { supabase } from '../lib/supabase'
@@ -11,7 +12,6 @@ import {
   ArrowRight,
   Bell,
   BookOpen,
-  CheckCircle2,
   Globe,
   LayoutGrid,
   MessageSquare,
@@ -116,10 +116,7 @@ function RegCard({
           {formatStatusLabel(regulation.status)}
         </span>
         {regulation.human_verified && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-            <CheckCircle2 size={11} />
-            Verified
-          </span>
+          <VerifiedBadge />
         )}
         {badge}
       </div>

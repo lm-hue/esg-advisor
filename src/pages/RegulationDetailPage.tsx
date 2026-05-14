@@ -2,6 +2,7 @@ import { KeyboardEvent, useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { withAuthModal } from '../lib/authModal'
 import BookmarkHint from '../components/BookmarkHint'
+import VerifiedBadge from '../components/VerifiedBadge'
 import { openExternalInNewTabOnly } from '../lib/openExternal'
 import { fetchRegulationById, fetchRegulationSourceDocumentsByIds, fetchRelatedRegulations } from '../lib/regulations'
 import {
@@ -12,7 +13,7 @@ import {
 } from '../lib/regulationSourceLinks'
 import { getUserWatchlist, saveUserWatchlist } from '../lib/userSettings'
 import { Regulation, RegulationSourceDocument } from '../types'
-import { ArrowLeft, ArrowUp, CheckCircle2, ExternalLink, FileText, GitBranch, Globe, Star } from 'lucide-react'
+import { ArrowLeft, ArrowUp, ExternalLink, FileText, GitBranch, Globe, Star } from 'lucide-react'
 import {
   CATEGORY_BADGES,
   CATEGORY_DOTS,
@@ -329,10 +330,7 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
                 {regulation.region}
               </span>
               {regulation.human_verified && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                  <CheckCircle2 size={13} />
-                  Human verified
-                </span>
+                <VerifiedBadge size="md" />
               )}
               {regulation.topics?.map((topic) => (
                 <span
@@ -487,9 +485,7 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {umbrellaParent?.human_verified && (
-                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-                    Human verified
-                  </span>
+                  <VerifiedBadge />
                 )}
                 {umbrellaParent && umbrellaParentSourceLinks && renderFamilySourceActions(umbrellaParent)}
                 {regulation.version_label && (
@@ -515,9 +511,7 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
                       <span className="flex-1 text-sm font-medium text-[hsl(var(--foreground))]">{sibling.title}</span>
                     <div className="flex flex-wrap items-center gap-2">
                       {sibling.human_verified && (
-                        <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-                          Human verified
-                        </span>
+                        <VerifiedBadge className="shrink-0" />
                       )}
                       {renderFamilySourceActions(sibling, { compact: true })}
                       {sibling.version_label && (
@@ -563,9 +557,7 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
                     <span className="flex-1 text-sm font-medium text-[hsl(var(--foreground))]">{child.title}</span>
                     <div className="flex flex-wrap items-center gap-2">
                       {child.human_verified && (
-                        <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-                          Human verified
-                        </span>
+                        <VerifiedBadge className="shrink-0" />
                       )}
                       {renderFamilySourceActions(child, { compact: true })}
                       {child.version_label && (

@@ -4,7 +4,6 @@ import { format } from 'date-fns'
 import {
   BookOpen,
   Check,
-  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -19,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import BookmarkHint from '../components/BookmarkHint'
+import VerifiedBadge from '../components/VerifiedBadge'
 import { withAuthModal } from '../lib/authModal'
 import { fetchAllRegulations } from '../lib/regulations'
 import { getUserWatchlist, saveUserWatchlist } from '../lib/userSettings'
@@ -578,10 +578,7 @@ function GroupedCardsView({
                 </span>
               )}
               {regulation.human_verified && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                  <CheckCircle2 size={11} />
-                  Verified
-                </span>
+                <VerifiedBadge />
               )}
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_BADGES[regulation.status] || 'bg-slate-100 text-slate-600'}`}>
                 {formatStatusLabel(regulation.status)}
@@ -641,10 +638,7 @@ function GroupedCardsView({
                 </span>
               )}
               {regulation.human_verified && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                  <CheckCircle2 size={11} />
-                  Verified
-                </span>
+                <VerifiedBadge />
               )}
             </div>
             <button
