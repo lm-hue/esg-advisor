@@ -4,6 +4,8 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Database,
   ExternalLink,
   Eye,
@@ -449,6 +451,7 @@ function DocumentEditorCard({
   removingStoredPdf: boolean
   isNew?: boolean
 }) {
+  const [expanded, setExpanded] = useState(isNew)
   const previewUrl =
     draft.document_type === 'pdf'
       ? sanitizeRegulationSourceUrl(draft.archived_public_url || draft.document_url || draft.official_source_url)
@@ -467,6 +470,14 @@ function DocumentEditorCard({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setExpanded((current) => !current)}
+              className={CONTROL_BUTTON_SECONDARY}
+            >
+              {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              {expanded ? 'Collapse' : 'Expand'}
+            </button>
             <button
               type="button"
               onClick={onSave}
@@ -491,8 +502,9 @@ function DocumentEditorCard({
         </div>
       </div>
 
-      <div className="grid gap-5 px-4 py-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
-        <div className="grid gap-3 md:grid-cols-2">
+      {expanded ? (
+        <div className="grid gap-5 px-4 py-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
+          <div className="grid gap-3 md:grid-cols-2">
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
               Title
@@ -685,7 +697,12 @@ function DocumentEditorCard({
             ) : null}
           </div>
         </div>
-      </div>
+        </div>
+      ) : (
+        <div className="px-4 py-4 text-sm text-[hsl(var(--muted-foreground))]">
+          Editor collapsed.
+        </div>
+      )}
     </div>
   )
 }
@@ -713,6 +730,8 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
   const [uploadingDocumentIds, setUploadingDocumentIds] = useState<Record<string, boolean>>({})
   const [removingStoredPdfIds, setRemovingStoredPdfIds] = useState<Record<string, boolean>>({})
   const [detailPreviewMode, setDetailPreviewMode] = useState<'library' | 'esg-home' | null>(null)
+  const [showButtonAudit, setShowButtonAudit] = useState(true)
+  const [showRegulationLinks, setShowRegulationLinks] = useState(true)
   const [showSourceDocuments, setShowSourceDocuments] = useState(searchParams.get('pdf') === 'yes')
   const [focusedPdfDocumentId, setFocusedPdfDocumentId] = useState('')
   const [regulationDraft, setRegulationDraft] = useState<RegulationDraft | null>(null)
@@ -1586,38 +1605,38 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
             </div>
           </div>
 
-          <div className="border-b border-[hsl(var(--border))] px-5 py-4">
+          <div className="border-b border-[hsl(var(--border))] px-4 py-3">
             <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" size={16} />
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" size={14} />
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search regulation name, title, region, or source"
-                className="ui-input pl-10"
+                className="ui-input h-10 pl-9 text-sm"
               />
             </label>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
               <label className="block">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
                   Sort
                 </span>
                 <select
                   value={sortMode}
                   onChange={(event) => setSortMode(event.target.value as SortMode)}
-                  className="ui-select"
+                  className="ui-select h-10 px-3 text-sm"
                 >
                   <option value="title_asc">Title A to Z</option>
                   <option value="title_desc">Title Z to A</option>
                 </select>
               </label>
               <label className="block">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
                   Official Website
                 </span>
                 <select
                   value={officialWebsiteFilter}
                   onChange={(event) => setOfficialWebsiteFilter(event.target.value as BinaryFilter)}
-                  className="ui-select"
+                  className="ui-select h-10 px-3 text-sm"
                 >
                   <option value="all">All regulations</option>
                   <option value="yes">Has Official Website</option>
@@ -1625,13 +1644,13 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                 </select>
               </label>
               <label className="block">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
                   Link to Policy
                 </span>
                 <select
                   value={policyPageFilter}
                   onChange={(event) => setPolicyPageFilter(event.target.value as BinaryFilter)}
-                  className="ui-select"
+                  className="ui-select h-10 px-3 text-sm"
                 >
                   <option value="all">All regulations</option>
                   <option value="yes">Has Link to Policy</option>
@@ -1639,13 +1658,13 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                 </select>
               </label>
               <label className="block">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
                   Open PDF
                 </span>
                 <select
                   value={pdfFilter}
                   onChange={(event) => setPdfFilter(event.target.value as BinaryFilter)}
-                  className="ui-select"
+                  className="ui-select h-10 px-3 text-sm"
                 >
                   <option value="all">All regulations</option>
                   <option value="yes">Has Open PDF</option>
@@ -1653,13 +1672,13 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                 </select>
               </label>
               <label className="block md:col-span-2">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
                   Human verification
                 </span>
                 <select
                   value={verifiedFilter}
                   onChange={(event) => setVerifiedFilter(event.target.value as BinaryFilter)}
-                  className="ui-select"
+                  className="ui-select h-10 px-3 text-sm"
                 >
                   <option value="all">All regulations</option>
                   <option value="yes">Verified by human</option>
@@ -1667,7 +1686,7 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                 </select>
               </label>
             </div>
-            <p className="mt-2 text-xs text-[hsl(var(--muted-foreground))]">
+            <p className="mt-1.5 text-[11px] text-[hsl(var(--muted-foreground))]">
               Showing {filteredRegulations.length} of {regulations.length} regulations.
               {availabilityLoading ? ' Refreshing Official Website, Link to Policy, and Open PDF availability…' : ''}
             </p>
@@ -1735,18 +1754,18 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
 
         <main className="min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto">
           <div className="surface-card overflow-hidden lg:min-h-full">
-            <div className="sticky top-0 z-20 border-b border-[hsl(var(--border))] bg-[hsl(var(--background))/0.96] px-5 py-5 backdrop-blur">
+            <div className="sticky top-0 z-40 border-b border-[hsl(var(--border))] bg-[hsl(var(--background))/0.98] px-5 py-4 shadow-sm backdrop-blur">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h2 className="font-display text-3xl font-semibold text-[hsl(var(--foreground))]">
+                  <h2 className="font-display text-[2rem] leading-[1.05] font-semibold text-[hsl(var(--foreground))]">
                     {selectedRegulation?.title || 'Select a regulation'}
                   </h2>
                   {selectedRegulation ? (
                     <>
-                      <p className="mt-2 line-clamp-4 max-w-4xl text-sm leading-6 text-[hsl(var(--muted-foreground))]">
+                      <p className="mt-1.5 line-clamp-3 max-w-4xl text-sm leading-6 text-[hsl(var(--muted-foreground))]">
                         {selectedRegulation.formal_title || selectedRegulation.description || selectedRegulation.full_description || 'No description available.'}
                       </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-2 flex flex-wrap gap-2">
                         <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${(regulationDraft?.human_verified ?? selectedRegulation.human_verified) ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
                           {(regulationDraft?.human_verified ?? selectedRegulation.human_verified) ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
                           {(regulationDraft?.human_verified ?? selectedRegulation.human_verified) ? 'Verified by human' : 'Not yet human-verified'}
@@ -2002,45 +2021,49 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-lg font-semibold text-[hsl(var(--foreground))]">Current UI button audit</p>
-                        <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                          Fast view of what the user currently sees, without opening the public page.
-                        </p>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <ButtonAuditPill label="Official Website" shown={selectedButtonAudit.officialWebsite.shown} />
                         <ButtonAuditPill label="Link to Policy" shown={selectedButtonAudit.policyPage.shown} />
                         <ButtonAuditPill label="Open PDF" shown={selectedButtonAudit.pdf.shown} />
+                        <button
+                          type="button"
+                          onClick={() => setShowButtonAudit((current) => !current)}
+                          className={CONTROL_BUTTON_SECONDARY}
+                        >
+                          {showButtonAudit ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          {showButtonAudit ? 'Collapse' : 'Expand'}
+                        </button>
                       </div>
                     </div>
                   </div>
-                  <div className="grid gap-3 px-4 py-4 lg:grid-cols-3">
-                    {selectedDocumentsLoading ? (
-                      <div className="lg:col-span-3 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))/0.35] px-4 py-6 text-sm text-[hsl(var(--muted-foreground))]">
-                        Loading source documents and PDF availability for this regulation...
+                  {showButtonAudit ? (
+                    <div className="grid gap-3 px-4 py-4 lg:grid-cols-3">
+                      {selectedDocumentsLoading ? (
+                        <div className="lg:col-span-3 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))/0.35] px-4 py-6 text-sm text-[hsl(var(--muted-foreground))]">
+                          Loading source documents and PDF availability for this regulation...
+                        </div>
+                      ) : null}
+                      <div className="rounded-2xl border border-[hsl(var(--border))] bg-white p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Official Website</p>
+                        <p className="mt-2 text-sm leading-6 text-[hsl(var(--foreground))]">{selectedButtonAudit.officialWebsite.note}</p>
                       </div>
-                    ) : null}
-                    <div className="rounded-2xl border border-[hsl(var(--border))] bg-white p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Official Website</p>
-                      <p className="mt-2 text-sm leading-6 text-[hsl(var(--foreground))]">{selectedButtonAudit.officialWebsite.note}</p>
+                      <div className="rounded-2xl border border-[hsl(var(--border))] bg-white p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Link to Policy</p>
+                        <p className="mt-2 text-sm leading-6 text-[hsl(var(--foreground))]">{selectedButtonAudit.policyPage.note}</p>
+                      </div>
+                      <div className="rounded-2xl border border-[hsl(var(--border))] bg-white p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Open PDF</p>
+                        <p className="mt-2 text-sm leading-6 text-[hsl(var(--foreground))]">{selectedButtonAudit.pdf.note}</p>
+                      </div>
                     </div>
-                    <div className="rounded-2xl border border-[hsl(var(--border))] bg-white p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Link to Policy</p>
-                      <p className="mt-2 text-sm leading-6 text-[hsl(var(--foreground))]">{selectedButtonAudit.policyPage.note}</p>
-                    </div>
-                    <div className="rounded-2xl border border-[hsl(var(--border))] bg-white p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Open PDF</p>
-                      <p className="mt-2 text-sm leading-6 text-[hsl(var(--foreground))]">{selectedButtonAudit.pdf.note}</p>
-                    </div>
-                  </div>
+                  ) : null}
                 </section>
 
-                <details className="surface-card overflow-hidden" open>
-                  <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 border-b border-[hsl(var(--border))] px-4 py-4">
+                <section className="surface-card overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[hsl(var(--border))] px-4 py-4">
                     <div>
                       <p className="text-lg font-semibold text-[hsl(var(--foreground))]">Regulation-level links</p>
-                      <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                        Edit the main Official Website and Link to Policy URLs used by the public UI.
-                      </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span
@@ -2053,70 +2076,79 @@ export default function AdminRegulationSourceDeskPage({ user }: AdminRegulationS
                         {selectedIsPersisted ? <Database size={13} /> : <Unplug size={13} />}
                         {selectedIsPersisted ? 'Live DB row' : 'Supplemental only'}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowRegulationLinks((current) => !current)}
+                        className={CONTROL_BUTTON_SECONDARY}
+                      >
+                        {showRegulationLinks ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        {showRegulationLinks ? 'Collapse' : 'Expand'}
+                      </button>
                     </div>
-                  </summary>
-
-                  <div className="grid gap-4 px-4 py-4 md:grid-cols-2">
-                    <label className="block">
-                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
-                        Source name
-                      </span>
-                      <input
-                        value={regulationDraft.source_name}
-                        onChange={(event) => setRegulationDraft({ ...regulationDraft, source_name: event.target.value })}
-                        className="ui-input"
-                        disabled={!selectedIsPersisted}
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
-                        Raw source URL
-                      </span>
-                      <input
-                        value={regulationDraft.source_url}
-                        onChange={(event) => setRegulationDraft({ ...regulationDraft, source_url: event.target.value })}
-                        className="ui-input"
-                        disabled={!selectedIsPersisted}
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
-                        Official Website URL
-                      </span>
-                      <input
-                        value={regulationDraft.official_source_url}
-                        onChange={(event) => setRegulationDraft({ ...regulationDraft, official_source_url: event.target.value })}
-                        className="ui-input"
-                        disabled={!selectedIsPersisted}
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
-                        Policy page URL
-                      </span>
-                      <input
-                        value={regulationDraft.policy_page_url}
-                        onChange={(event) => setRegulationDraft({ ...regulationDraft, policy_page_url: event.target.value })}
-                        className="ui-input"
-                        disabled={!selectedIsPersisted}
-                      />
-                    </label>
                   </div>
 
-                  {!selectedIsPersisted ? (
-                    <div className="border-t border-[hsl(var(--border))] bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                      This regulation is currently supplemental-only in the frontend merge layer, so regulation-row edits are disabled. You can still add or edit source documents below for this ID.
-                    </div>
+                  {showRegulationLinks ? (
+                    <>
+                      <div className="grid gap-4 px-4 py-4 md:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
+                            Source name
+                          </span>
+                          <input
+                            value={regulationDraft.source_name}
+                            onChange={(event) => setRegulationDraft({ ...regulationDraft, source_name: event.target.value })}
+                            className="ui-input"
+                            disabled={!selectedIsPersisted}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
+                            Raw source URL
+                          </span>
+                          <input
+                            value={regulationDraft.source_url}
+                            onChange={(event) => setRegulationDraft({ ...regulationDraft, source_url: event.target.value })}
+                            className="ui-input"
+                            disabled={!selectedIsPersisted}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
+                            Official Website URL
+                          </span>
+                          <input
+                            value={regulationDraft.official_source_url}
+                            onChange={(event) => setRegulationDraft({ ...regulationDraft, official_source_url: event.target.value })}
+                            className="ui-input"
+                            disabled={!selectedIsPersisted}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
+                            Policy page URL
+                          </span>
+                          <input
+                            value={regulationDraft.policy_page_url}
+                            onChange={(event) => setRegulationDraft({ ...regulationDraft, policy_page_url: event.target.value })}
+                            className="ui-input"
+                            disabled={!selectedIsPersisted}
+                          />
+                        </label>
+                      </div>
+
+                      {!selectedIsPersisted ? (
+                        <div className="border-t border-[hsl(var(--border))] bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                          This regulation is currently supplemental-only in the frontend merge layer, so regulation-row edits are disabled. You can still add or edit source documents below for this ID.
+                        </div>
+                      ) : null}
+                    </>
                   ) : null}
-                </details>
+                </section>
 
                 <section className="surface-card overflow-hidden">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[hsl(var(--border))] px-4 py-4">
                     <div>
                       <p className="text-lg font-semibold text-[hsl(var(--foreground))]">Source documents and PDFs</p>
-                      <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                        Manage all attached source rows here, including multiple PDFs for one regulation.
-                      </p>
                     </div>
                     <button
                       type="button"
