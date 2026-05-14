@@ -40,11 +40,14 @@
     font-family: var(--font-sans);
     background: hsl(var(--background));
     color: hsl(var(--foreground));
+    height: 100%;
+    overflow: hidden;
   }
 
   body {
     margin: 0;
-    min-height: 100vh;
+    height: 100%;
+    overflow: hidden;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -53,7 +56,8 @@
   }
 
   #root {
-    min-height: 100vh;
+    height: 100%;
+    overflow: hidden;
   }
 }
 
@@ -287,6 +291,202 @@
     @apply text-xs uppercase tracking-[0.18em];
     color: hsl(var(--muted-foreground));
   }
+
+  .guide-hero {
+    @apply relative overflow-hidden rounded-[32px] border px-5 py-6 md:px-7 md:py-7;
+    border-color: hsl(var(--border));
+    background:
+      radial-gradient(circle at top left, rgba(15, 123, 92, 0.12), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(247, 209, 106, 0.18), transparent 26%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 248, 246, 0.96) 100%);
+  }
+
+  .guide-hero-grid {
+    @apply grid gap-8 xl:grid-cols-[1.05fr_0.95fr] xl:items-center;
+  }
+
+  .guide-kicker {
+    @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em];
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+  }
+
+  .guide-stat {
+    @apply rounded-[22px] border px-4 py-3;
+    border-color: hsl(var(--border));
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(10px);
+  }
+
+  .guide-stat-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.16em];
+    color: hsl(var(--muted-foreground));
+  }
+
+  .guide-stat-value {
+    @apply mt-2 block font-display text-3xl font-semibold leading-none;
+    color: hsl(var(--foreground));
+  }
+
+  .guide-preview-stage {
+    @apply relative min-h-[27rem] md:min-h-[31rem];
+  }
+
+  .guide-preview-panel {
+    @apply absolute inset-x-0 bottom-0 rounded-[28px] border p-5 md:p-6;
+    border-color: hsl(var(--border));
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 24px 64px hsl(var(--foreground) / 0.08);
+    backdrop-filter: blur(16px);
+  }
+
+  .guide-preview-icon {
+    @apply flex h-10 w-10 items-center justify-center rounded-2xl;
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+  }
+
+  .guide-preview-row {
+    @apply flex items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-sm;
+    border-color: hsl(var(--border));
+    background: hsl(var(--background) / 0.7);
+  }
+
+  .guide-preview-row span {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .guide-preview-row strong {
+    @apply text-right font-semibold;
+    color: hsl(var(--foreground));
+  }
+
+  .guide-check-row {
+    @apply flex items-start gap-3 text-sm leading-6;
+    color: hsl(var(--foreground));
+  }
+
+  .guide-check-dot {
+    @apply mt-2 h-2 w-2 shrink-0 rounded-full;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 0 5px hsl(var(--primary) / 0.12);
+  }
+
+  .guide-floating-note {
+    @apply absolute w-[15rem] rounded-[22px] border px-4 py-3 text-sm leading-6;
+    border-color: hsl(var(--border));
+    background: rgba(252, 252, 251, 0.9);
+    box-shadow: 0 16px 40px hsl(var(--foreground) / 0.07);
+    backdrop-filter: blur(12px);
+  }
+
+  .guide-floating-note:first-of-type {
+    @apply right-2 top-2 md:right-8 md:top-4;
+  }
+
+  .guide-floating-note:last-of-type {
+    @apply left-0 top-24 md:left-6 md:top-32;
+  }
+
+  .guide-floating-label {
+    @apply block text-[11px] font-semibold uppercase tracking-[0.16em];
+    color: hsl(var(--primary));
+  }
+
+  .guide-floating-note p {
+    @apply mt-2 mb-0;
+    color: hsl(var(--foreground));
+  }
+
+  .guide-workflow-tab {
+    @apply flex items-start gap-3 rounded-[22px] border px-4 py-4 text-left transition-all duration-200;
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .guide-workflow-tab:hover {
+    background: hsl(var(--background) / 0.55);
+  }
+
+  .guide-workflow-tab-active {
+    border-color: hsl(var(--border));
+    background: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(245, 248, 246, 0.9) 100%);
+    box-shadow: 0 10px 24px hsl(var(--foreground) / 0.05);
+  }
+
+  .guide-workflow-tab-icon {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl;
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+  }
+
+  .guide-feature-row {
+    @apply flex w-full items-center gap-4 px-0 py-4 text-left transition-colors;
+  }
+
+  .guide-feature-row:hover {
+    background: transparent;
+  }
+
+  .guide-feature-row-icon {
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl;
+    background: hsl(var(--background));
+    color: hsl(var(--primary));
+  }
+
+  .guide-cta-panel {
+    @apply rounded-[32px] border px-5 py-6 md:px-6 md:py-6;
+    border-color: hsl(var(--border));
+    background:
+      radial-gradient(circle at top right, rgba(247, 209, 106, 0.18), transparent 22%),
+      linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(247, 250, 248, 0.95) 100%);
+    box-shadow: 0 18px 40px hsl(var(--foreground) / 0.04);
+  }
+
+  .guide-sequence-row {
+    @apply flex items-start gap-4;
+  }
+
+  .guide-sequence-number {
+    @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold;
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+  }
+}
+
+@keyframes guide-float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes guide-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.guide-float {
+  animation: guide-float 5.4s ease-in-out infinite;
+}
+
+.guide-float-delayed {
+  animation: guide-float 6.2s ease-in-out infinite 0.6s;
+}
+
+.guide-fade-up {
+  animation: guide-fade-up 320ms ease;
 }
 
 body {

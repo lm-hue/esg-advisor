@@ -1,15 +1,20 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { fetchAllRegulations } from '../lib/regulations'
+import { normalizeStatus } from '../lib/appTheme'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 const CATEGORY_COLORS = ['#0f766e', '#0f7b5c', '#d97706', '#2563eb', '#7c3aed']
 const STATUS_COLORS: Record<string, string> = {
-  in_force: '#dc2626',
-  adopted: '#ea580c',
+  effective: '#dc2626',
+  adopted_not_yet_effective: '#ea580c',
   draft: '#d97706',
-  amended: '#2563eb',
+  amended_effective: '#2563eb',
+  proposal: '#c026d3',
+  consultation: '#7c3aed',
   repealed: '#94a3b8',
+  superseded: '#64748b',
+  archived: '#78716c',
 }
 
 export default function AnalyticsPage() {
@@ -41,7 +46,8 @@ export default function AnalyticsPage() {
 
       regulations.forEach((regulation) => {
         categoryCount[regulation.category] = (categoryCount[regulation.category] || 0) + 1
-        statusCount[regulation.status] = (statusCount[regulation.status] || 0) + 1
+        const status = normalizeStatus(regulation.status)
+        statusCount[status] = (statusCount[status] || 0) + 1
       })
 
       const complianceCount: Record<string, number> = {}

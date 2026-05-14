@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { REGIONS, ESG_CATEGORIES } from '../types'
+import { ESG_CATEGORIES } from '../types'
+import { GEOGRAPHY_OPTIONS } from '../lib/geography'
 import { ChevronRight, ChevronLeft, Sparkles } from 'lucide-react'
 
 interface OnboardingModalProps {
@@ -92,18 +93,23 @@ export default function OnboardingModal({ userSettings, userId, onComplete }: On
           <div>
             <h2 className="mb-4 text-2xl font-semibold text-[hsl(var(--foreground))]">Which regions do you operate in?</h2>
             <p className="mb-6 text-[hsl(var(--muted-foreground))]">Select all that apply.</p>
-            <div className="grid grid-cols-2 gap-3">
-              {REGIONS.map((region) => (
+            <div className="grid max-h-[22rem] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+              {GEOGRAPHY_OPTIONS.map((option) => (
                 <button
-                  key={region}
-                  onClick={() => toggleRegion(region)}
-                  className={`rounded-xl border px-4 py-3 font-medium transition-all ${
-                    regions.includes(region)
+                  key={option.value}
+                  onClick={() => toggleRegion(option.value)}
+                  className={`rounded-xl border px-4 py-3 text-left font-medium transition-all ${
+                    regions.includes(option.value)
                       ? 'border-[hsl(var(--primary)/0.3)] bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))]'
                       : 'border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary)/0.2)]'
                   }`}
                 >
-                  {region}
+                  <span className="block text-sm text-[hsl(var(--foreground))]">
+                    {option.emoji} {option.name}
+                  </span>
+                  <span className="mt-1 block text-xs text-[hsl(var(--muted-foreground))]">
+                    {option.kind === 'global' ? 'Global' : `${option.region} · ${option.continent}`}
+                  </span>
                 </button>
               ))}
             </div>

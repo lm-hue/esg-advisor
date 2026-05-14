@@ -15,7 +15,9 @@ import {
 } from 'lucide-react'
 import { withAuthModal } from '../lib/authModal'
 import BookmarkHint from '../components/BookmarkHint'
+import { openExternalInNewTabOnly } from '../lib/openExternal'
 import { fetchAllRegulations } from '../lib/regulations'
+import { getRegulationSourceLinks } from '../lib/regulationSourceLinks'
 import { getUserWatchlist, saveUserWatchlist } from '../lib/userSettings'
 import { Regulation } from '../types'
 import {
@@ -23,12 +25,22 @@ import {
   REGULATION_TYPE_BADGES,
   REGULATION_TYPE_OPTIONS,
   STATUS_BADGES,
+  TOPIC_BADGES,
+  TOPIC_OPTIONS,
   formatCategoryLabel,
+  formatDateWithPrecision,
   formatRegulationTypeLabel,
   formatStatusLabel,
+  formatTopicLabel,
+  getRegulationTypeDefinition,
   getRegulationTypeKey,
+  getStatusDefinition,
+  getTopicDefinition,
   normalizeCategoryKey,
+  normalizeStatus,
 } from '../lib/appTheme'
+import { formatGeographyOptionLabel } from '../lib/geography'
+import InlineInfoTooltip from '../components/InlineInfoTooltip'
 
 interface TimelinePageProps {
   user: any
@@ -37,6 +49,7 @@ interface TimelinePageProps {
 interface TimelineFilters {
   categories: string[]
   types: string[]
+  topics: string[]
   statuses: string[]
   regions: string[]
 }
@@ -44,11 +57,10 @@ interface TimelineFilters {
 const EMPTY_FILTERS: TimelineFilters = {
   categories: [],
   types: [],
+  topics: [],
   statuses: [],
   regions: [],
 }
-
-const STATUS_OPTIONS = ['in_force', 'draft', 'adopted', 'amended', 'repealed']
 
 function getRegulationDate(regulation: Regulation) {
   return regulation.effective_date || regulation.updated_at || regulation.created_at
@@ -77,6 +89,7 @@ function searchMatches(regulation: Regulation, query: string) {
     regulation.region?.toLowerCase().includes(q) ||
     regulation.category?.toLowerCase().includes(q) ||
     formatRegulationTypeLabel(getRegulationTypeKey(regulation)).toLowerCase().includes(q) ||
+    regulation.topics?.some((topic) => formatTopicLabel(topic).toLowerCase().includes(q)) ||
     regulation.tags?.some((tag) => tag.toLowerCase().includes(q))
   )
 }
@@ -110,7 +123,7 @@ function downloadRegulationPdf(regulation: Regulation) {
           <div>Type: ${formatRegulationTypeLabel(getRegulationTypeKey(regulation))}</div>
           <div>Region: ${regulation.region}</div>
           <div>Status: ${formatStatusLabel(regulation.status)}</div>
-          <div>Effective: ${regulation.effective_date ? format(new Date(regulation.effective_date), 'MMMM d, yyyy') : 'Unknown'}</div>
+          <div>Effective: ${formatDateWithPrecision(regulation.effective_date, regulation.date_precision)}</div>
           <div>Source: ${getSourceLabel(regulation)}</div>
         </div>
         <p>${getRegulationSummary(regulation)}</p>
@@ -214,7 +227,10 @@ function SearchSuggestions({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm text-[hsl(var(--foreground))]">{regulation.title}</p>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${REGULATION_TYPE_BADGES[getRegulationTypeKey(regulation)] || 'bg-slate-100 text-slate-600'}`}>
+                  <span
+                    title={getRegulationTypeDefinition(getRegulationTypeKey(regulation))}
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${REGULATION_TYPE_BADGES[getRegulationTypeKey(regulation)] || 'bg-slate-100 text-slate-600'}`}
+                  >
                     {formatRegulationTypeLabel(getRegulationTypeKey(regulation))}
                   </span>
                   <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${CATEGORY_BADGES[normalizeCategoryKey(regulation.category)] || 'bg-slate-100 text-slate-600'}`}>
@@ -236,11 +252,13 @@ function FilterOptionList({
   options,
   selected,
   onToggle,
+  getDefinition,
 }: {
   label: string
   options: { value: string; label: string }[]
   selected: string[]
   onToggle: (value: string) => void
+  getDefinition?: (value: string) => string
 }) {
   return (
     <div className="mb-2.5 last:mb-0">
@@ -248,6 +266,7 @@ function FilterOptionList({
       <div className="space-y-1">
         {options.map((option) => {
           const active = selected.includes(option.value)
+          const definition = getDefinition?.(option.value) || ''
           return (
             <button
               key={option.value}
@@ -258,7 +277,10 @@ function FilterOptionList({
                   : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))/0.55] hover:text-[hsl(var(--foreground))]'
               }`}
             >
-              <span>{option.label}</span>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span>{option.label}</span>
+                {definition ? <InlineInfoTooltip text={definition} /> : null}
+              </span>
               <span
                 className={`flex h-3.5 w-3.5 items-center justify-center rounded border ${
                   active
@@ -283,6 +305,7 @@ function CompactMultiSelect({
   selected,
   onToggle,
   onClear,
+  getDefinition,
 }: {
   label: string
   allLabel: string
@@ -290,6 +313,7 @@ function CompactMultiSelect({
   selected: string[]
   onToggle: (value: string) => void
   onClear: () => void
+  getDefinition?: (value: string) => string
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -342,6 +366,7 @@ function CompactMultiSelect({
               options={options}
               selected={selected}
               onToggle={onToggle}
+              getDefinition={getDefinition}
             />
           </div>
           {selected.length > 0 && (
@@ -385,7 +410,9 @@ function DesktopFiltersPanel({
   onFiltersChange,
   uniqueRegions,
   uniqueCategories,
+  uniqueTopics,
   uniqueTypes,
+  uniqueStatuses,
   totalCount,
   filteredCount,
 }: {
@@ -393,7 +420,9 @@ function DesktopFiltersPanel({
   onFiltersChange: (filters: TimelineFilters) => void
   uniqueRegions: string[]
   uniqueCategories: string[]
+  uniqueTopics: { value: string; label: string }[]
   uniqueTypes: { value: string; label: string }[]
+  uniqueStatuses: { value: string; label: string }[]
   totalCount: number
   filteredCount: number
 }) {
@@ -419,6 +448,7 @@ function DesktopFiltersPanel({
           selected={filters.types}
           onToggle={(value) => toggleFilter('types', value)}
           onClear={() => onFiltersChange({ ...filters, types: [] })}
+          getDefinition={getRegulationTypeDefinition}
         />
         <CompactMultiSelect
           label="Theme"
@@ -429,9 +459,18 @@ function DesktopFiltersPanel({
           onClear={() => onFiltersChange({ ...filters, categories: [] })}
         />
         <CompactMultiSelect
+          label="Topic"
+          allLabel="All topics"
+          options={uniqueTopics}
+          selected={filters.topics}
+          onToggle={(value) => toggleFilter('topics', value)}
+          onClear={() => onFiltersChange({ ...filters, topics: [] })}
+          getDefinition={getTopicDefinition}
+        />
+        <CompactMultiSelect
           label="Region"
           allLabel="All regions"
-          options={uniqueRegions.map((region) => ({ value: region, label: region }))}
+          options={uniqueRegions.map((region) => ({ value: region, label: formatGeographyOptionLabel(region) }))}
           selected={filters.regions}
           onToggle={(value) => toggleFilter('regions', value)}
           onClear={() => onFiltersChange({ ...filters, regions: [] })}
@@ -439,10 +478,11 @@ function DesktopFiltersPanel({
         <CompactMultiSelect
           label="Status"
           allLabel="All statuses"
-          options={STATUS_OPTIONS.map((status) => ({ value: status, label: formatStatusLabel(status) }))}
+          options={uniqueStatuses}
           selected={filters.statuses}
           onToggle={(value) => toggleFilter('statuses', value)}
           onClear={() => onFiltersChange({ ...filters, statuses: [] })}
+          getDefinition={getStatusDefinition}
         />
       </div>
 
@@ -463,10 +503,17 @@ function DesktopFiltersPanel({
               onRemove={() => toggleFilter('categories', category)}
             />
           ))}
+          {filters.topics.map((topic) => (
+            <ActiveFilterChip
+              key={`topic-${topic}`}
+              label={formatTopicLabel(topic)}
+              onRemove={() => toggleFilter('topics', topic)}
+            />
+          ))}
           {filters.regions.map((region) => (
             <ActiveFilterChip
               key={`region-${region}`}
-              label={region}
+              label={formatGeographyOptionLabel(region)}
               onRemove={() => toggleFilter('regions', region)}
             />
           ))}
@@ -506,7 +553,9 @@ function MobileFiltersDrawer({
   onFiltersChange,
   uniqueRegions,
   uniqueCategories,
+  uniqueTopics,
   uniqueTypes,
+  uniqueStatuses,
 }: {
   open: boolean
   onClose: () => void
@@ -514,7 +563,9 @@ function MobileFiltersDrawer({
   onFiltersChange: (filters: TimelineFilters) => void
   uniqueRegions: string[]
   uniqueCategories: string[]
+  uniqueTopics: { value: string; label: string }[]
   uniqueTypes: { value: string; label: string }[]
+  uniqueStatuses: { value: string; label: string }[]
 }) {
   if (!open) return null
 
@@ -553,6 +604,7 @@ function MobileFiltersDrawer({
           options={uniqueTypes}
           selected={filters.types}
           onToggle={(value) => toggleFilter('types', value)}
+          getDefinition={getRegulationTypeDefinition}
         />
         <FilterOptionList
           label="Theme"
@@ -561,16 +613,24 @@ function MobileFiltersDrawer({
           onToggle={(value) => toggleFilter('categories', value)}
         />
         <FilterOptionList
+          label="Topic"
+          options={uniqueTopics}
+          selected={filters.topics}
+          onToggle={(value) => toggleFilter('topics', value)}
+          getDefinition={getTopicDefinition}
+        />
+        <FilterOptionList
           label="Region"
-          options={uniqueRegions.map((region) => ({ value: region, label: region }))}
+          options={uniqueRegions.map((region) => ({ value: region, label: formatGeographyOptionLabel(region) }))}
           selected={filters.regions}
           onToggle={(value) => toggleFilter('regions', value)}
         />
         <FilterOptionList
           label="Status"
-          options={STATUS_OPTIONS.map((status) => ({ value: status, label: formatStatusLabel(status) }))}
+          options={uniqueStatuses}
           selected={filters.statuses}
           onToggle={(value) => toggleFilter('statuses', value)}
+          getDefinition={getStatusDefinition}
         />
 
         <button onClick={onClose} className="ui-button-primary mt-2 w-full">
@@ -590,77 +650,116 @@ function CompareModal({
 }) {
   if (regulations.length !== 2) return null
 
+  const navigate = useNavigate()
   const [a, b] = regulations
-
-  const rows = [
-    { label: 'Type', a: formatRegulationTypeLabel(getRegulationTypeKey(a)), b: formatRegulationTypeLabel(getRegulationTypeKey(b)) },
-    { label: 'Theme', a: formatCategoryLabel(a.category), b: formatCategoryLabel(b.category) },
+  const compareRows = [
+    { label: 'Title', a: a.title, b: b.title },
     { label: 'Region', a: a.region, b: b.region },
+    {
+      label: 'Theme',
+      a: formatCategoryLabel(a.category),
+      b: formatCategoryLabel(b.category),
+    },
+    {
+      label: 'Topics',
+      a: a.topics?.map((topic) => formatTopicLabel(topic)).join(', ') || 'None set',
+      b: b.topics?.map((topic) => formatTopicLabel(topic)).join(', ') || 'None set',
+    },
     { label: 'Status', a: formatStatusLabel(a.status), b: formatStatusLabel(b.status) },
     {
-      label: 'Effective Date',
-      a: a.effective_date ? format(new Date(a.effective_date), 'MMM d, yyyy') : 'Unknown',
-      b: b.effective_date ? format(new Date(b.effective_date), 'MMM d, yyyy') : 'Unknown',
+      label: 'Effective date',
+      a: formatDateWithPrecision(a.effective_date, a.date_precision),
+      b: formatDateWithPrecision(b.effective_date, b.date_precision),
+    },
+    {
+      label: 'Summary',
+      a: getRegulationSummary(a),
+      b: getRegulationSummary(b),
     },
     { label: 'Source', a: getSourceLabel(a), b: getSourceLabel(b) },
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="surface-card w-full max-w-5xl overflow-hidden">
-        <div className="flex items-center justify-between border-b border-[hsl(var(--border))] px-6 py-4">
-          <div>
-            <h3 className="font-display text-2xl font-semibold text-[hsl(var(--foreground))]">Compare Regulations</h3>
-            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">Side-by-side comparison of the selected regulations.</p>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-8">
+      <div className="surface-card w-full max-w-4xl overflow-hidden shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[hsl(var(--border))] px-5 py-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-[hsl(var(--foreground))]">Side-by-Side Comparison</h2>
+            <button
+              onClick={() => {
+                onClose()
+                navigate(
+                  `/advisor?compareIdA=${encodeURIComponent(a.id)}&compareIdB=${encodeURIComponent(b.id)}&compareTitleA=${encodeURIComponent(a.title)}&compareTitleB=${encodeURIComponent(b.title)}`
+                )
+              }}
+              className="inline-flex items-center gap-1 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-1.5 text-xs font-medium text-[hsl(var(--primary))] transition-colors hover:border-[hsl(var(--primary))/0.35] hover:bg-[hsl(var(--primary))/0.05]"
+            >
+              View in AI Advisor
+              <Sparkles size={12} />
+            </button>
           </div>
           <button onClick={onClose} className="ui-button-ghost !p-2">
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        <div className="grid gap-6 p-6 md:grid-cols-2">
+        <div className="grid grid-cols-[140px_1fr_1fr] border-b border-[hsl(var(--border))] md:grid-cols-[160px_1fr_1fr]">
+          <div className="p-3" />
           {[a, b].map((regulation) => (
-            <div key={regulation.id} className="surface-card-muted p-5">
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${REGULATION_TYPE_BADGES[getRegulationTypeKey(regulation)] || 'bg-slate-100 text-slate-600'}`}>
-                  {formatRegulationTypeLabel(getRegulationTypeKey(regulation))}
-                </span>
-                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${CATEGORY_BADGES[normalizeCategoryKey(regulation.category)] || 'bg-slate-100 text-slate-600'}`}>
-                  {formatCategoryLabel(regulation.category)}
-                </span>
-                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_BADGES[regulation.status] || 'bg-slate-100 text-slate-600'}`}>
-                  {formatStatusLabel(regulation.status)}
-                </span>
-              </div>
-              <h4 className="mb-2 text-lg font-semibold text-[hsl(var(--foreground))]">{regulation.title}</h4>
-              <p className="text-sm leading-7 text-[hsl(var(--muted-foreground))]">{getRegulationSummary(regulation)}</p>
+            <div key={regulation.id} className="bg-[hsl(var(--muted))/0.45] p-3">
+              <p className="mb-1 text-sm font-semibold leading-snug text-[hsl(var(--foreground))]">
+                {regulation.title}
+              </p>
+              <button
+                onClick={() => {
+                  onClose()
+                  navigate(`/advisor?regulationId=${regulation.id}&title=${encodeURIComponent(regulation.title)}`)
+                }}
+                className="inline-flex items-center gap-1 text-xs font-medium text-[hsl(var(--primary))] transition-colors hover:opacity-80"
+              >
+                View in AI Advisor
+                <Sparkles size={12} />
+              </button>
             </div>
           ))}
         </div>
 
-        <div className="px-6 pb-6">
-          <div className="overflow-hidden rounded-xl border border-[hsl(var(--border))]">
-            <div className="grid grid-cols-[1fr_1fr_1fr_auto] bg-[hsl(var(--muted))] text-xs font-semibold text-[hsl(var(--muted-foreground))]">
-              <div className="border-r border-[hsl(var(--border))] px-4 py-3">Dimension</div>
-              <div className="border-r border-[hsl(var(--border))] px-4 py-3">{a.title}</div>
-              <div className="border-r border-[hsl(var(--border))] px-4 py-3">{b.title}</div>
-              <div className="px-4 py-3 text-center">Status</div>
-            </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px]">
+            <tbody>
+              {compareRows.map((row) => {
+                const differs = compareText(row.a, row.b) !== 'Aligned'
 
-            {rows.map((row, index) => (
-              <div
-                key={row.label}
-                className={`grid grid-cols-[1fr_1fr_1fr_auto] text-sm ${index > 0 ? 'border-t border-[hsl(var(--border))]' : ''}`}
-              >
-                <div className="border-r border-[hsl(var(--border))] px-4 py-3 font-medium text-[hsl(var(--foreground))]">{row.label}</div>
-                <div className="border-r border-[hsl(var(--border))] px-4 py-3 text-[hsl(var(--foreground))]">{row.a}</div>
-                <div className="border-r border-[hsl(var(--border))] px-4 py-3 text-[hsl(var(--foreground))]">{row.b}</div>
-                <div className="flex items-center justify-center px-4 py-3 text-xs font-semibold text-[hsl(var(--primary))]">
-                  {compareText(row.a, row.b)}
-                </div>
-              </div>
-            ))}
-          </div>
+                return (
+                  <tr key={row.label} className="border-b border-[hsl(var(--border))] last:border-0">
+                    <td className="w-[140px] bg-[hsl(var(--muted))/0.28] p-3 text-xs font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))] md:w-[160px]">
+                      {row.label}
+                    </td>
+                    <td
+                      className={`p-3 align-top text-sm text-[hsl(var(--foreground))] ${
+                        differs ? 'bg-amber-50/80' : ''
+                      } ${row.label === 'Summary' ? 'leading-6' : ''}`}
+                    >
+                      {row.a || <span className="italic text-[hsl(var(--muted-foreground))/0.6]">—</span>}
+                    </td>
+                    <td
+                      className={`p-3 align-top text-sm text-[hsl(var(--foreground))] ${
+                        differs ? 'bg-amber-50/80' : ''
+                      } ${row.label === 'Summary' ? 'leading-6' : ''}`}
+                    >
+                      {row.b || <span className="italic text-[hsl(var(--muted-foreground))/0.6]">—</span>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex justify-end border-t border-[hsl(var(--border))] p-4">
+          <button onClick={onClose} className="ui-button-secondary">
+            Close
+          </button>
         </div>
       </div>
     </div>
@@ -716,16 +815,31 @@ function TimelineList({
                   <div className={`surface-card flex-1 p-4 transition-all group-hover:border-[hsl(var(--primary))/0.2] group-hover:shadow-sm ${selected ? 'ring-2 ring-[hsl(var(--primary))]' : ''}`}>
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${REGULATION_TYPE_BADGES[getRegulationTypeKey(regulation)] || 'bg-slate-100 text-slate-600'}`}>
+                        <span
+                          title={getRegulationTypeDefinition(getRegulationTypeKey(regulation))}
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${REGULATION_TYPE_BADGES[getRegulationTypeKey(regulation)] || 'bg-slate-100 text-slate-600'}`}
+                        >
                           {formatRegulationTypeLabel(getRegulationTypeKey(regulation))}
                         </span>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${CATEGORY_BADGES[normalizeCategoryKey(regulation.category)] || 'bg-slate-100 text-slate-600'}`}>
                           {formatCategoryLabel(regulation.category)}
                         </span>
+                        {regulation.topics?.slice(0, 2).map((topic) => (
+                          <span
+                            key={`${regulation.id}-${topic}`}
+                            title={getTopicDefinition(topic)}
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${TOPIC_BADGES[topic] || 'bg-slate-100 text-slate-600'}`}
+                          >
+                            {formatTopicLabel(topic)}
+                          </span>
+                        ))}
                         <span className="rounded-full bg-[hsl(var(--muted))] px-2 py-0.5 text-[10px] font-semibold text-[hsl(var(--muted-foreground))]">
                           {regulation.region}
                         </span>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGES[regulation.status] || 'bg-slate-100 text-slate-600'}`}>
+                        <span
+                          title={getStatusDefinition(regulation.status)}
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGES[regulation.status] || 'bg-slate-100 text-slate-600'}`}
+                        >
                           {formatStatusLabel(regulation.status)}
                         </span>
                         {regulation.updated_at && regulation.created_at && regulation.updated_at !== regulation.created_at && (
@@ -766,15 +880,14 @@ function TimelineList({
 
                     <div className="mb-1 flex items-center gap-1 text-[11px] text-[hsl(var(--muted-foreground))]">
                       <span className="font-medium">{getSourceLabel(regulation)}</span>
-                      {regulation.source_url && (
-                        <a
-                          href={regulation.source_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                      {getRegulationSourceLinks(regulation).primaryExternalUrl && (
+                        <button
+                          type="button"
+                          onClick={() => openExternalInNewTabOnly(getRegulationSourceLinks(regulation).primaryExternalUrl)}
                           className="transition-colors hover:text-[hsl(var(--primary))]"
                         >
                           <Plus size={12} className="rotate-45" />
-                        </a>
+                        </button>
                       )}
                     </div>
 
@@ -814,9 +927,7 @@ function TimelineList({
                       </div>
 
                       <span className="text-[11px] text-[hsl(var(--muted-foreground))]">
-                        {getRegulationDate(regulation)
-                          ? format(new Date(getRegulationDate(regulation)), 'MMM d, yyyy')
-                          : 'Unknown'}
+                        {formatDateWithPrecision(getRegulationDate(regulation), regulation.date_precision)}
                       </span>
                     </div>
                   </div>
@@ -889,6 +1000,22 @@ export default function TimelinePage({ user }: TimelinePageProps) {
     [regulations]
   )
 
+  const uniqueTopics = useMemo(
+    () =>
+      TOPIC_OPTIONS.filter((option) =>
+        regulations.some((regulation) => regulation.topics?.includes(option.value))
+      ),
+    [regulations]
+  )
+
+  const uniqueStatuses = useMemo(
+    () =>
+      [...new Set(regulations.map((regulation) => normalizeStatus(regulation.status)))]
+        .sort((a, b) => formatStatusLabel(a).localeCompare(formatStatusLabel(b)))
+        .map((status) => ({ value: status, label: formatStatusLabel(status) })),
+    [regulations]
+  )
+
   const filtered = useMemo(() => {
     return regulations.filter((regulation) => {
       const matchesSearch = searchMatches(regulation, searchQuery)
@@ -896,13 +1023,15 @@ export default function TimelinePage({ user }: TimelinePageProps) {
         filters.types.length === 0 || filters.types.includes(getRegulationTypeKey(regulation))
       const matchesCategory =
         filters.categories.length === 0 || filters.categories.includes(normalizeCategoryKey(regulation.category))
+      const matchesTopic =
+        filters.topics.length === 0 || filters.topics.some((topic) => regulation.topics?.includes(topic as any))
       const matchesStatus =
         filters.statuses.length === 0 || filters.statuses.includes(regulation.status)
       const matchesRegion =
         filters.regions.length === 0 || filters.regions.includes(regulation.region)
       const matchesWatchlist = !showWatchlistOnly || watchlist.includes(regulation.id)
 
-      return matchesSearch && matchesType && matchesCategory && matchesStatus && matchesRegion && matchesWatchlist
+      return matchesSearch && matchesType && matchesCategory && matchesTopic && matchesStatus && matchesRegion && matchesWatchlist
     })
   }, [filters, regulations, searchQuery, showWatchlistOnly, watchlist])
 
@@ -976,7 +1105,9 @@ export default function TimelinePage({ user }: TimelinePageProps) {
           onFiltersChange={setFilters}
           uniqueRegions={uniqueRegions}
           uniqueCategories={uniqueCategories}
+          uniqueTopics={uniqueTopics}
           uniqueTypes={uniqueTypes}
+          uniqueStatuses={uniqueStatuses}
           totalCount={regulations.length}
           filteredCount={filtered.length}
         />
@@ -1050,13 +1181,25 @@ export default function TimelinePage({ user }: TimelinePageProps) {
               }
             />
           ))}
-          {filters.regions.map((region) => (
+          {filters.topics.map((topic) => (
             <ActiveFilterChip
-              key={`mobile-region-${region}`}
-              label={region}
+              key={`mobile-topic-${topic}`}
+              label={formatTopicLabel(topic)}
               onRemove={() =>
                 setFilters((current) => ({
                   ...current,
+                  topics: current.topics.filter((item) => item !== topic),
+                }))
+              }
+            />
+          ))}
+          {filters.regions.map((region) => (
+              <ActiveFilterChip
+                key={`mobile-region-${region}`}
+                label={formatGeographyOptionLabel(region)}
+                onRemove={() =>
+                  setFilters((current) => ({
+                    ...current,
                   regions: current.regions.filter((item) => item !== region),
                 }))
               }
@@ -1146,15 +1289,17 @@ export default function TimelinePage({ user }: TimelinePageProps) {
       )}
 
       <CompareModal regulations={showCompare ? selectedToCompare : []} onClose={() => setShowCompare(false)} />
-      <MobileFiltersDrawer
-        open={showMobileFilters}
-        onClose={() => setShowMobileFilters(false)}
-        filters={filters}
-        onFiltersChange={setFilters}
-        uniqueRegions={uniqueRegions}
-        uniqueCategories={uniqueCategories}
-        uniqueTypes={uniqueTypes}
-      />
+        <MobileFiltersDrawer
+          open={showMobileFilters}
+          onClose={() => setShowMobileFilters(false)}
+          filters={filters}
+          onFiltersChange={setFilters}
+          uniqueRegions={uniqueRegions}
+          uniqueCategories={uniqueCategories}
+          uniqueTopics={uniqueTopics}
+          uniqueTypes={uniqueTypes}
+          uniqueStatuses={uniqueStatuses}
+        />
     </div>
   )
 }

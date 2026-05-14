@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "index:sources": "node scripts/index-regulation-sources.mjs",
+    "sync:regulations": "node scripts/sync-supplemental-regulations.mjs",
+    "check:regulations-sync": "node scripts/check-regulations-sync.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.0.4",
@@ -22,18 +25,21 @@
     "clsx": "^2.0.0",
     "date-fns": "^3.0.0",
     "lucide-react": "^0.354.0",
+    "pdfjs-dist": "^4.10.38",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.0",
+    "react-simple-maps": "^1.0.0",
     "recharts": "^2.10.0",
     "tailwind-merge": "^2.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react": "^5.0.2",
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.31",
+    "supabase": "^2.84.10",
     "tailwindcss": "^3.3.6",
     "typescript": "^5.2.2",
     "vite": "^8.0.3"

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Auth } from '@supabase/auth-ui-react'
-import { ThemeSupa } from '@supabase/auth-ui-shared'
 import { supabase } from '../lib/supabase'
 import OnboardingModal from '../components/OnboardingModal'
+import AuthPanel from '../components/AuthPanel'
+import { ensureUserSettings } from '../lib/userSettings'
 import { Leaf } from 'lucide-react'
 
 export default function AuthPage() {
@@ -41,40 +41,13 @@ export default function AuthPage() {
 
   const checkOnboarding = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', userId)
-        .single()
+      const settings = await ensureUserSettings(userId)
+      setUserSettings(settings)
 
-      if (error && error.code === 'PGRST116') {
-        const { data: newSettings } = await supabase
-          .from('user_settings')
-          .insert({
-            user_id: userId,
-            industry: '',
-            regions: [],
-            esg_categories: [],
-            watched_regulation_ids: [],
-            onboarding_completed: false,
-            alerts_enabled: true,
-            alert_categories: [],
-            alert_regions: [],
-            alert_keywords: [],
-            alert_frequency: 'weekly',
-          })
-          .select()
-          .single()
-
-        setUserSettings(newSettings)
+      if (!settings.onboarding_completed) {
         setShowOnboarding(true)
-      } else if (data) {
-        setUserSettings(data)
-        if (!data.onboarding_completed) {
-          setShowOnboarding(true)
-        } else {
-          navigate('/regulations')
-        }
+      } else {
+        navigate('/esg-home')
       }
     } catch (error) {
       console.error('Error checking onboarding:', error)
@@ -83,7 +56,7 @@ export default function AuthPage() {
 
   const handleOnboardingComplete = async () => {
     setShowOnboarding(false)
-    navigate('/regulations')
+    navigate('/esg-home')
   }
 
   if (loading) {
@@ -121,7 +94,7 @@ export default function AuthPage() {
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))]">
                 <Leaf size={16} />
               </span>
-              RegulESG Advisor Workspace
+              ESG Compass Advisor Workspace
             </div>
             <h1 className="font-display text-5xl font-semibold leading-tight text-[hsl(var(--foreground))]">
               Sustainability compliance, styled like the reference app.
@@ -137,35 +110,11 @@ export default function AuthPage() {
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))]">
               <Leaf size={20} />
             </div>
-            <h1 className="font-display text-3xl font-semibold text-[hsl(var(--foreground))]">RegulESG</h1>
+            <h1 className="font-display text-3xl font-semibold text-[hsl(var(--foreground))]">ESG Compass</h1>
             <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Your AI-powered ESG compliance guide</p>
           </div>
 
-          <Auth
-            supabaseClient={supabase}
-            appearance={{
-              theme: ThemeSupa,
-              variables: {
-                default: {
-                  colors: {
-                    brand: 'hsl(162 63% 24%)',
-                    brandAccent: 'hsl(162 63% 20%)',
-                    inputBackground: '#ffffff',
-                    inputBorder: 'hsl(150 12% 89%)',
-                    inputBorderHover: 'hsl(162 63% 24%)',
-                    inputBorderFocus: 'hsl(162 63% 24%)',
-                  },
-                  radii: {
-                    borderRadiusButton: '12px',
-                    buttonBorderRadius: '12px',
-                    inputBorderRadius: '12px',
-                  },
-                },
-              },
-            }}
-            providers={[]}
-            redirectTo={`${window.location.origin}/regulations`}
-          />
+          <AuthPanel />
         </div>
       </div>
     </div>

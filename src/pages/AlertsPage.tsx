@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Save } from 'lucide-react'
-import { ESG_CATEGORIES, REGIONS } from '../types/index'
+import { ESG_CATEGORIES } from '../types/index'
 import { CATEGORY_DOTS } from '../lib/appTheme'
+import { GEOGRAPHY_OPTIONS } from '../lib/geography'
 
 interface AlertsPageProps {
   user: any
@@ -156,13 +157,16 @@ export default function AlertsPage({ user }: AlertsPageProps) {
           <div className="surface-card mb-6 p-6">
             <p className="ui-section-title mb-4">Regions to monitor</p>
             <div className="flex flex-wrap gap-2">
-              {REGIONS.map((region) => (
+              {GEOGRAPHY_OPTIONS.map((option) => (
                 <button
-                  key={region}
-                  onClick={() => toggleItem('alert_regions', region)}
-                  className={`ui-filter-pill ${settings.alert_regions.includes(region) ? 'ui-filter-pill-active' : ''}`}
+                  key={option.value}
+                  onClick={() => toggleItem('alert_regions', option.value)}
+                  className={`ui-filter-pill ${settings.alert_regions.includes(option.value) ? 'ui-filter-pill-active' : ''}`}
                 >
-                  {region}
+                  {option.emoji} {option.name}
+                  <span className="text-[10px] opacity-70">
+                    {option.kind === 'global' ? 'Global' : `${option.region} · ${option.continent}`}
+                  </span>
                 </button>
               ))}
             </div>
