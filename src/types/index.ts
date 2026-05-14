@@ -67,6 +67,7 @@ export interface Regulation {
   official_source_url?: string | null
   policy_page_url?: string | null
   source_link_kind?: SourceLinkKind | null
+  human_verified?: boolean
   tags: string[]
   created_at: string
   updated_at: string

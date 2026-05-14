@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Bell,
   BookOpen,
+  CheckCircle2,
   Globe,
   LayoutGrid,
   MessageSquare,
@@ -114,6 +115,12 @@ function RegCard({
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_BADGES[regulation.status] || 'bg-slate-100 text-slate-600'}`}>
           {formatStatusLabel(regulation.status)}
         </span>
+        {regulation.human_verified && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+            <CheckCircle2 size={11} />
+            Verified
+          </span>
+        )}
         {badge}
       </div>
 

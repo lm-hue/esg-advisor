@@ -19,6 +19,11 @@ import GuidePage from './pages/GuidePage'
 import DirectionTwoConceptPage from './pages/DirectionTwoConceptPage'
 import SourceDocumentPage from './pages/SourceDocumentPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
+import AdminRegulationSourceDeskPage from './pages/AdminRegulationSourceDeskPage'
+
+function profileHasAdminAccess(profile: { role?: string | null; is_admin?: boolean | null } | null | undefined) {
+  return profile?.role === 'admin' || profile?.is_admin === true
+}
 
 function App() {
   const location = useLocation()
@@ -27,6 +32,15 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  const renderLoadingState = (message: string) => (
+    <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--background))]">
+      <div className="surface-card flex items-center gap-3 px-5 py-4">
+        <div className="h-6 w-6 animate-spin rounded-full border-4 border-[hsl(var(--primary)/0.2)] border-t-[hsl(var(--primary))]" />
+        <p className="text-sm font-medium text-[hsl(var(--foreground))]">{message}</p>
+      </div>
+    </div>
+  )
+
   useEffect(() => {
     let initialized = false
 
@@ -34,13 +48,16 @@ function App() {
       (_event, session) => {
         if (session?.user) {
           setUser(session.user)
-          // Fetch profile role in background — don't block the loading state
           supabase
             .from('profiles')
-            .select('role')
+            .select('role, is_admin')
             .eq('id', session.user.id)
             .maybeSingle()
-            .then(({ data: profile }) => setIsAdmin(profile?.role === 'admin'), () => {})
+            .then(({ data: profile }) => {
+              setIsAdmin(profileHasAdminAccess(profile))
+            }, () => {
+              setIsAdmin(false)
+            })
         } else {
           setUser(null)
           setIsAdmin(false)
@@ -67,14 +84,7 @@ function App() {
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--background))]">
-        <div className="surface-card flex items-center gap-3 px-5 py-4">
-          <div className="h-6 w-6 animate-spin rounded-full border-4 border-[hsl(var(--primary)/0.2)] border-t-[hsl(var(--primary))]" />
-          <p className="text-sm font-medium text-[hsl(var(--foreground))]">Loading workspace...</p>
-        </div>
-      </div>
-    )
+    return renderLoadingState('Loading workspace...')
   }
 
   const authModalOpen = isAuthModalOpen(location.search)
@@ -94,6 +104,10 @@ function App() {
         <Route path="/auth" element={<Navigate to="/esg-home?auth=1" replace />} />
         <Route path="/regulations" element={<Navigate to="/esg-home" replace />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route
+          path="/admin/regulation-source-control"
+          element={<AdminRegulationSourceDeskPage user={user} />}
+        />
 
         <Route element={<Layout user={user} isAdmin={isAdmin} />}>
           <Route path="/" element={<Navigate to="/esg-home" replace />} />

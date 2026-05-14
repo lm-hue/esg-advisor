@@ -3520,6 +3520,7 @@ function normalizeRegulationRecord(record: RegulationRecord): RegulationRecord {
     ...record,
     source_name: sanitizeFrontEndSourceName(record.source_name),
     source_url: sanitizedSourceUrl || '',
+    human_verified: record.human_verified ?? false,
     status,
     jurisdiction_type: record.jurisdiction_type || inferJurisdictionType(record.jurisdiction_value || record.region),
     jurisdiction_value: record.jurisdiction_value || record.region,

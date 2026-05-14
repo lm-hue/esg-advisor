@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import {
   BookOpen,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -576,6 +577,12 @@ function GroupedCardsView({
                   {regulation.version_label}
                 </span>
               )}
+              {regulation.human_verified && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                  <CheckCircle2 size={11} />
+                  Verified
+                </span>
+              )}
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_BADGES[regulation.status] || 'bg-slate-100 text-slate-600'}`}>
                 {formatStatusLabel(regulation.status)}
               </span>
@@ -631,6 +638,12 @@ function GroupedCardsView({
               {regulation.version_label && (
                 <span className="rounded-full bg-[hsl(var(--primary)/0.1)] px-2.5 py-0.5 text-[10px] font-semibold text-[hsl(var(--primary))]">
                   {regulation.version_label}
+                </span>
+              )}
+              {regulation.human_verified && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                  <CheckCircle2 size={11} />
+                  Verified
                 </span>
               )}
             </div>

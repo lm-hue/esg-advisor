@@ -12,7 +12,7 @@ import {
 } from '../lib/regulationSourceLinks'
 import { getUserWatchlist, saveUserWatchlist } from '../lib/userSettings'
 import { Regulation, RegulationSourceDocument } from '../types'
-import { ArrowLeft, ArrowUp, ExternalLink, FileText, GitBranch, Globe, Star } from 'lucide-react'
+import { ArrowLeft, ArrowUp, CheckCircle2, ExternalLink, FileText, GitBranch, Globe, Star } from 'lucide-react'
 import {
   CATEGORY_BADGES,
   CATEGORY_DOTS,
@@ -328,6 +328,12 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
                 <span>{REGION_EMOJIS[regulation.region] || '🌍'}</span>
                 {regulation.region}
               </span>
+              {regulation.human_verified && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                  <CheckCircle2 size={13} />
+                  Human verified
+                </span>
+              )}
               {regulation.topics?.map((topic) => (
                 <span
                   key={`${regulation.id}-${topic}`}
@@ -480,6 +486,11 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {umbrellaParent?.human_verified && (
+                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                    Human verified
+                  </span>
+                )}
                 {umbrellaParent && umbrellaParentSourceLinks && renderFamilySourceActions(umbrellaParent)}
                 {regulation.version_label && (
                   <span className="rounded-full bg-[hsl(var(--primary)/0.1)] px-2.5 py-0.5 text-xs font-medium text-[hsl(var(--primary))]">
@@ -502,9 +513,14 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
                       className="flex w-full flex-col gap-3 rounded-xl bg-[hsl(var(--muted))] px-4 py-3 text-left transition-colors hover:bg-[hsl(var(--muted)/0.7)] md:flex-row md:items-center"
                     >
                       <span className="flex-1 text-sm font-medium text-[hsl(var(--foreground))]">{sibling.title}</span>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {renderFamilySourceActions(sibling, { compact: true })}
-                        {sibling.version_label && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {sibling.human_verified && (
+                        <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                          Human verified
+                        </span>
+                      )}
+                      {renderFamilySourceActions(sibling, { compact: true })}
+                      {sibling.version_label && (
                           <span className="shrink-0 rounded-full bg-[hsl(var(--background))] px-2.5 py-0.5 text-xs text-[hsl(var(--muted-foreground))]">
                             {sibling.version_label}
                           </span>
@@ -546,6 +562,11 @@ export default function RegulationDetailPage({ user }: RegulationDetailPageProps
                   >
                     <span className="flex-1 text-sm font-medium text-[hsl(var(--foreground))]">{child.title}</span>
                     <div className="flex flex-wrap items-center gap-2">
+                      {child.human_verified && (
+                        <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                          Human verified
+                        </span>
+                      )}
                       {renderFamilySourceActions(child, { compact: true })}
                       {child.version_label && (
                         <span className="shrink-0 rounded-full bg-[hsl(var(--background))] px-2.5 py-0.5 text-xs text-[hsl(var(--muted-foreground))]">
