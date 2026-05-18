@@ -11,6 +11,25 @@ function buildDisplayLink(document: RegulationSourceDocument | null) {
   return document.document_url || document.official_source_url || ''
 }
 
+function buildPdfSearchPhrase(text: string) {
+  const normalized = text.replace(/\s+/g, ' ').trim()
+  if (!normalized) return ''
+
+  const words = normalized.split(' ').slice(0, 18).join(' ')
+  return words.slice(0, 180).trim()
+}
+
+function buildPdfViewerUrl(url: string, searchPhrase: string) {
+  if (!url) return ''
+
+  const hashParts = ['toolbar=0', 'navpanes=0']
+  if (searchPhrase) {
+    hashParts.push(`search=${encodeURIComponent(searchPhrase)}`)
+  }
+
+  return `${url}#${hashParts.join('&')}`
+}
+
 export default function SourceDocumentPage() {
   const { documentId } = useParams()
   const location = useLocation()
@@ -50,6 +69,18 @@ export default function SourceDocumentPage() {
   }, [loading, highlightedChunkIndex, chunks.length])
 
   const displayLink = useMemo(() => buildDisplayLink(document), [document])
+  const highlightedChunk = useMemo(
+    () => chunks.find((chunk) => chunk.chunk_index === highlightedChunkIndex) || null,
+    [chunks, highlightedChunkIndex]
+  )
+  const pdfSearchPhrase = useMemo(
+    () => buildPdfSearchPhrase(highlightedChunk?.content || ''),
+    [highlightedChunk]
+  )
+  const pdfViewerUrl = useMemo(
+    () => (document?.document_type === 'pdf' ? buildPdfViewerUrl(displayLink, pdfSearchPhrase) : ''),
+    [displayLink, document?.document_type, pdfSearchPhrase]
+  )
   const regulationPath = navigationState?.regulationPath || (document?.regulation_id ? `/esg-home/${document.regulation_id}` : '/esg-home')
   const regulationState = navigationState?.regulationPath
     ? {
@@ -91,7 +122,7 @@ export default function SourceDocumentPage() {
             {displayLink ? (
               <button
                 type="button"
-                onClick={() => openExternalInNewTabOnly(displayLink)}
+                onClick={() => openExternalInNewTabOnly(document?.document_type === 'pdf' ? pdfViewerUrl || displayLink : displayLink)}
                 className="ui-button-ghost inline-flex items-center gap-2 self-start"
               >
                 {document?.document_type === 'pdf' ? 'Open PDF' : 'Open Link'}
@@ -106,6 +137,34 @@ export default function SourceDocumentPage() {
             <p className="text-sm text-[hsl(var(--muted-foreground))]">Loading cited source text...</p>
           ) : !document ? (
             <p className="text-sm text-[hsl(var(--muted-foreground))]">This source document could not be found.</p>
+          ) : document.document_type === 'pdf' && displayLink ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-[hsl(var(--border))] bg-white p-3">
+                <iframe
+                  title={document.title || 'Source PDF'}
+                  src={pdfViewerUrl || displayLink}
+                  className="h-[70vh] w-full rounded-xl border-0 bg-[hsl(var(--muted))/0.3]"
+                />
+              </div>
+
+              {highlightedChunk && pdfSearchPhrase ? (
+                <div className="rounded-2xl border border-[hsl(var(--primary)/0.18)] bg-[hsl(var(--primary))/0.05] px-4 py-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--primary))]">
+                      Highlighted reference
+                    </p>
+                    {excerptLabel ? (
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--primary))]">
+                        {excerptLabel}
+                      </p>
+                    ) : null}
+                  </div>
+                  <p className="mt-3 text-sm leading-7 text-[hsl(var(--foreground))]">
+                    The PDF viewer is opened with this cited excerpt as the search highlight target.
+                  </p>
+                </div>
+              ) : null}
+            </div>
           ) : chunks.length === 0 ? (
             <p className="text-sm text-[hsl(var(--muted-foreground))]">
               No extracted text is available for this source document yet.
