@@ -31,6 +31,7 @@ export default function AIAdvisorPage({ user }: AIAdvisorPageProps) {
   const [loading, setLoading] = useState(false)
   const [regulations, setRegulations] = useState<any[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
+  const openAiApiKey = (import.meta.env.VITE_OPENAI_API_KEY || '').trim()
 
   useEffect(() => {
     fetchAllRegulations().then((data) => setRegulations(data || []))
@@ -81,6 +82,18 @@ export default function AIAdvisorPage({ user }: AIAdvisorPageProps) {
     setLoading(true)
 
     try {
+      if (!openAiApiKey) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: 'AI unavailable. `VITE_OPENAI_API_KEY` is missing from your local environment, so the advisor cannot reach OpenAI yet.',
+            timestamp: Date.now(),
+          },
+        ])
+        return
+      }
+
       const context = buildContext(input)
       const history = messages.slice(-6).map((message) => ({ role: message.role, content: message.content }))
 
@@ -88,7 +101,7 @@ export default function AIAdvisorPage({ user }: AIAdvisorPageProps) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+          Authorization: `Bearer ${openAiApiKey}`,
         },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
@@ -102,9 +115,22 @@ export default function AIAdvisorPage({ user }: AIAdvisorPageProps) {
       })
 
       const data = await response.json()
+      if (!response.ok) {
+        const apiMessage = data?.error?.message || `OpenAI request failed with status ${response.status}.`
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `AI unavailable. ${apiMessage}`,
+            timestamp: Date.now(),
+          },
+        ])
+        return
+      }
+
       const reply =
         data.choices?.[0]?.message?.content ||
-        'Sorry, I could not generate a response. Please check your OpenAI API key in .env.'
+        'Sorry, I could not generate a response from OpenAI.'
 
       setMessages((prev) => [...prev, { role: 'assistant', content: reply, timestamp: Date.now() }])
     } catch {
@@ -112,7 +138,7 @@ export default function AIAdvisorPage({ user }: AIAdvisorPageProps) {
         ...prev,
         {
           role: 'assistant',
-          content: 'AI unavailable. Add VITE_OPENAI_API_KEY to your .env file to enable the AI advisor.',
+          content: 'AI unavailable. The browser request to OpenAI failed before a response came back.',
           timestamp: Date.now(),
         },
       ])
